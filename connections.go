@@ -4,22 +4,22 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
-)
 
-type ConnectionsResponse struct {
-	Data []ConnectionsModel `json:"data"`
-}
+	"github.com/google/uuid"
+)
 
 type ConnectionsModel struct {
 	ID                  string    `json:"id" omitempty:"true"`
-	CreatedAt           time.Time `json:"created_at" omitempty:"true"`
-	UpdatedAt           time.Time `json:"updated_at" omitempty:"true"`
+	OrgID               string    `json:"org_id" omitempty:"true"`
 	Name                string    `json:"name"`
 	EnvironmentType     string    `json:"environment_type"`
 	EnvironmentNativeId string    `json:"environment_native_id"`
 	Status              string    `json:"status"`
+	CreatedAt           time.Time `json:"created_at" omitempty:"true"`
+	UpdatedAt           time.Time `json:"updated_at" omitempty:"true"`
 }
 
 func (c *Client) CreateConnection(connection ConnectionsModel) (*ConnectionsModel, error) {
@@ -55,8 +55,8 @@ func (c *Client) CreateConnection(connection ConnectionsModel) (*ConnectionsMode
 	return &createdConnection, nil
 }
 
-func (c *Client) GetConnections() (*ConnectionsResponse, error) {
-	url := fmt.Sprintf("%s/connections", c.baseURL) + "/connections"
+func (c *Client) GetConnections() ([]ConnectionsModel, error) {
+	url := fmt.Sprintf("%s/connections", c.baseURL)
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.apiKey,
 	}
@@ -72,17 +72,26 @@ func (c *Client) GetConnections() (*ConnectionsResponse, error) {
 	}
 	defer resp.Body.Close()
 
-	var connections ConnectionsResponse
+	var connections []ConnectionsModel
 	err = json.NewDecoder(resp.Body).Decode(&connections)
 	if err != nil {
 		return nil, err
 	}
 
-	return &connections, nil
+	return connections, nil
 }
 
 func (c *Client) GetConnection(id string) (*ConnectionsModel, error) {
-	url := fmt.Sprintf("%s/connections/%s", c.baseURL, id)
+	if id == "" {
+		return nil, fmt.Errorf("id cannot be empty")
+	}
+
+	// Validate UUID format
+	_, err := uuid.Parse(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid UUID format: %v", err)
+	}
+	url := c.baseURL + "/connections?id=" + id
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.apiKey,
 	}
@@ -108,7 +117,17 @@ func (c *Client) GetConnection(id string) (*ConnectionsModel, error) {
 }
 
 func (c *Client) UpdateConnection(id string, connection ConnectionsModel) (*ConnectionsModel, error) {
-	url := fmt.Sprintf("%s/connections/%s", c.baseURL, id)
+	if id == "" {
+		return nil, fmt.Errorf("id cannot be empty")
+	}
+
+	// Validate UUID format
+	_, err := uuid.Parse(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid UUID format: %v", err)
+	}
+
+	url := c.baseURL + "/connections/" + id
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.apiKey,
 	}
@@ -141,7 +160,17 @@ func (c *Client) UpdateConnection(id string, connection ConnectionsModel) (*Conn
 }
 
 func (c *Client) DeleteConnection(id string) error {
-	url := fmt.Sprintf("%s/connections/%s", c.baseURL, id)
+	if id == "" {
+		return fmt.Errorf("id cannot be empty")
+	}
+
+	// Validate UUID format
+	_, err := uuid.Parse(id)
+	if err != nil {
+		return fmt.Errorf("invalid UUID format: %v", err)
+	}
+
+	url := c.baseURL + "/connections/" + id
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.apiKey,
 	}
@@ -156,6 +185,14 @@ func (c *Client) DeleteConnection(id string) error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read error response body: %v", err)
+		}
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
 
 	return nil
 }

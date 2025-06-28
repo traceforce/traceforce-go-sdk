@@ -18,11 +18,11 @@ type Client struct {
 type ClientOptions struct {
 }
 
-// NewClient creates a new Supabase client.
-// url is the Supabase URL.
-// key is the Supabase API key.
-// options is the Supabase client options.
-func NewClient(url, key string, options *ClientOptions) (*Client, error) {
+// NewClient creates a new Traceforce client.
+// key is the Traceforce API key.
+// url is the Traceforce URL.
+// options is the Traceforce client options.
+func NewClient(key, url string, options *ClientOptions) (*Client, error) {
 	if url == "" {
 		url = defaultBaseURL
 	}
