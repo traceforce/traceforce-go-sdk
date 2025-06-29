@@ -13,8 +13,9 @@ func TestConnections(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
+	testConnectionName := "connection with space"
 	connection := ConnectionsModel{
-		Name:                "Test Connection",
+		Name:                testConnectionName,
 		EnvironmentType:     "test",
 		EnvironmentNativeId: "test",
 		Status:              "disconnected",
@@ -50,13 +51,25 @@ func TestConnections(t *testing.T) {
 		assert.NotEmpty(t, connection.EnvironmentNativeId)
 		assert.NotEmpty(t, connection.Status)
 
-		if connection.Name == "Test Connection" {
+		if connection.Name == testConnectionName {
 			testConnection = connection
 		}
 	}
 
 	t.Logf("Connection: %+v", testConnection)
 	assert.NotNil(t, testConnection)
+
+	connectionByName, err := client.GetConnectionByName(testConnectionName)
+	if err != nil {
+		t.Fatalf("Failed to get connection by name: %v", err)
+	}
+	t.Logf("Connection by name: %+v", connectionByName)
+	assert.NotNil(t, connectionByName)
+	assert.Equal(t, testConnection.Name, connectionByName.Name)
+	assert.Equal(t, testConnection.ID, connectionByName.ID)
+	assert.Equal(t, testConnection.EnvironmentType, connectionByName.EnvironmentType)
+	assert.Equal(t, testConnection.EnvironmentNativeId, connectionByName.EnvironmentNativeId)
+	assert.Equal(t, testConnection.Status, connectionByName.Status)
 
 	testConnection.Status = "connected"
 	updatedConnection, err := client.UpdateConnection(testConnection.ID, testConnection)
@@ -74,20 +87,4 @@ func TestConnections(t *testing.T) {
 	}
 
 	t.Logf("Deleted connection: %+v", testConnection)
-}
-
-func TestDeleteConnection(t *testing.T) {
-	client, err := NewClient(os.Getenv("TRACEFORCE_API_KEY"), "", nil)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	id := "355defff-6999-4f34-addf-983e3f6052d1"
-
-	err = client.DeleteConnection(id)
-	if err != nil {
-		t.Fatalf("Failed to delete connection: %v", err)
-	}
-
-	t.Logf("Deleted connection %v", id)
 }
