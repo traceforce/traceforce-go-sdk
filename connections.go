@@ -12,15 +12,23 @@ import (
 	"github.com/google/uuid"
 )
 
+type ConnectionStatus string
+
+const (
+	ConnectionStatusConnected    ConnectionStatus = "connected"
+	ConnectionStatusDisconnected ConnectionStatus = "disconnected"
+	ConnectionStatusPending      ConnectionStatus = "pending"
+)
+
 type ConnectionsModel struct {
-	ID                  string    `json:"id" omitempty:"true"`
-	OrgID               string    `json:"org_id" omitempty:"true"`
-	Name                string    `json:"name"`
-	EnvironmentType     string    `json:"environment_type"`
-	EnvironmentNativeId string    `json:"environment_native_id"`
-	Status              string    `json:"status"`
-	CreatedAt           time.Time `json:"created_at" omitempty:"true"`
-	UpdatedAt           time.Time `json:"updated_at" omitempty:"true"`
+	ID                  string           `json:"id"`
+	OrgID               string           `json:"org_id"`
+	Name                string           `json:"name"`
+	EnvironmentType     string           `json:"environment_type"`
+	EnvironmentNativeId string           `json:"environment_native_id"`
+	Status              ConnectionStatus `json:"status"`
+	CreatedAt           time.Time        `json:"created_at" omitempty:"true"`
+	UpdatedAt           time.Time        `json:"updated_at" omitempty:"true"`
 }
 
 func (c *Client) CreateConnection(connection ConnectionsModel) (*ConnectionsModel, error) {

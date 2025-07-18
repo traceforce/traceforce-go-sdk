@@ -18,7 +18,7 @@ func TestConnections(t *testing.T) {
 		Name:                testConnectionName,
 		EnvironmentType:     "test",
 		EnvironmentNativeId: "test",
-		Status:              "disconnected",
+		Status:              ConnectionStatusDisconnected,
 	}
 
 	createdConnection, err := client.CreateConnection(connection)
@@ -71,7 +71,7 @@ func TestConnections(t *testing.T) {
 	assert.Equal(t, testConnection.EnvironmentNativeId, connectionByName.EnvironmentNativeId)
 	assert.Equal(t, testConnection.Status, connectionByName.Status)
 
-	testConnection.Status = "connected"
+	testConnection.Status = ConnectionStatusConnected
 	updatedConnection, err := client.UpdateConnection(testConnection.ID, testConnection)
 	if err != nil {
 		t.Fatalf("Failed to update connection: %v", err)
