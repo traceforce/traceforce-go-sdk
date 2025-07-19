@@ -14,16 +14,14 @@ func TestDatalakes(t *testing.T) {
 	}
 
 	// First create a hosting environment for the datalake
-	awsProvider := CloudProviderAWS
-	environment := HostingEnvironment{
+	environmentReq := CreateHostingEnvironmentRequest{
 		Name:          "test hosting environment for datalake",
 		Type:          HostingEnvironmentTypeCustomerManaged,
-		CloudProvider: &awsProvider,
+		CloudProvider: CloudProviderAWS,
 		NativeID:      "123456789012",
-		Status:        HostingEnvironmentStatusPending,
 	}
 
-	createdEnvironment, err := client.CreateHostingEnvironment(environment)
+	createdEnvironment, err := client.CreateHostingEnvironment(environmentReq)
 	if err != nil {
 		t.Fatalf("Failed to create hosting environment: %v", err)
 	}
@@ -35,25 +33,23 @@ func TestDatalakes(t *testing.T) {
 	}()
 
 	testDatalakeName := "test datalake"
-	datalake := Datalake{
-		PodID:                "", // Optional - backend can assign
+	datalakeReq := CreateDatalakeRequest{
 		HostingEnvironmentID: createdEnvironment.ID,
 		Type:                 DatalakeTypeBigQuery,
 		Name:                 testDatalakeName,
-		Status:               DatalakeStatusPending,
 	}
 
-	createdDatalake, err := client.CreateDatalake(datalake)
+	createdDatalake, err := client.CreateDatalake(datalakeReq)
 	if err != nil {
 		t.Fatalf("Failed to create datalake: %v", err)
 	}
 
 	t.Logf("Created datalake: %+v", createdDatalake)
 	assert.NotNil(t, createdDatalake)
-	assert.Equal(t, datalake.Name, createdDatalake.Name)
-	assert.Equal(t, datalake.Type, createdDatalake.Type)
-	assert.Equal(t, datalake.HostingEnvironmentID, createdDatalake.HostingEnvironmentID)
-	assert.Equal(t, datalake.Status, createdDatalake.Status)
+	assert.Equal(t, datalakeReq.Name, createdDatalake.Name)
+	assert.Equal(t, datalakeReq.Type, createdDatalake.Type)
+	assert.Equal(t, datalakeReq.HostingEnvironmentID, createdDatalake.HostingEnvironmentID)
+	assert.Equal(t, DatalakeStatusPending, createdDatalake.Status)
 
 	datalakes, err := client.GetDatalakes()
 	if err != nil {
@@ -107,16 +103,19 @@ func TestDatalakes(t *testing.T) {
 	}
 	assert.True(t, found, "Test datalake should be found in hosting environment datalakes")
 
-	testDatalake.Status = DatalakeStatusReady
-	updatedDatalake, err := client.UpdateDatalake(testDatalake.ID, testDatalake)
+	newName := testDatalake.Name + " updated"
+	updateReq := UpdateDatalakeRequest{
+		Name: &newName,
+	}
+	updatedDatalake, err := client.UpdateDatalake(testDatalake.ID, updateReq)
 	if err != nil {
 		t.Fatalf("Failed to update datalake: %v", err)
 	}
 
 	t.Logf("Updated datalake: %+v", updatedDatalake)
 	assert.NotNil(t, updatedDatalake)
-	assert.Equal(t, testDatalake.Name, updatedDatalake.Name)
-	assert.Equal(t, DatalakeStatusReady, updatedDatalake.Status)
+	assert.Equal(t, newName, updatedDatalake.Name)
+	// Note: Status update is not supported via UpdateDatalakeRequest
 
 	err = client.DeleteDatalake(testDatalake.ID)
 	if err != nil {
@@ -153,13 +152,14 @@ func TestDatalakeValidation(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid UUID format")
 
 	// Test UpdateDatalake with empty ID
-	datalake := Datalake{Name: "test"}
-	_, err = client.UpdateDatalake("", datalake)
+	testName := "test"
+	updateReq := UpdateDatalakeRequest{Name: &testName}
+	_, err = client.UpdateDatalake("", updateReq)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "id cannot be empty")
 
 	// Test UpdateDatalake with invalid UUID
-	_, err = client.UpdateDatalake("invalid-uuid", datalake)
+	_, err = client.UpdateDatalake("invalid-uuid", updateReq)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid UUID format")
 

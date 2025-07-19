@@ -14,15 +14,14 @@ func TestSourceApps(t *testing.T) {
 	}
 
 	// First create a hosting environment for the datalake
-	environment := HostingEnvironment{
+	environmentReq := CreateHostingEnvironmentRequest{
 		Name:          "test hosting environment for source app",
 		Type:          HostingEnvironmentTypeCustomerManaged,
 		CloudProvider: CloudProviderAWS,
 		NativeID:      "123456789012",
-		Status:        HostingEnvironmentStatusPending,
 	}
 
-	createdEnvironment, err := client.CreateHostingEnvironment(environment)
+	createdEnvironment, err := client.CreateHostingEnvironment(environmentReq)
 	if err != nil {
 		t.Fatalf("Failed to create hosting environment: %v", err)
 	}
@@ -34,15 +33,13 @@ func TestSourceApps(t *testing.T) {
 	}()
 
 	// Create a datalake for the source app
-	datalake := Datalake{
-		PodID:                "", // Optional - backend can assign
+	datalakeReq := CreateDatalakeRequest{
 		HostingEnvironmentID: createdEnvironment.ID,
 		Type:                 DatalakeTypeBigQuery,
 		Name:                 "test datalake for source app",
-		Status:               DatalakeStatusPending,
 	}
 
-	createdDatalake, err := client.CreateDatalake(datalake)
+	createdDatalake, err := client.CreateDatalake(datalakeReq)
 	if err != nil {
 		t.Fatalf("Failed to create datalake: %v", err)
 	}
@@ -54,27 +51,24 @@ func TestSourceApps(t *testing.T) {
 	}()
 
 	testSourceAppName := "test source app"
-	sourceApp := SourceApp{
-		DatalakeID:           createdDatalake.ID,
-		PodID:                "", // Optional - backend can assign
-		HostingEnvironmentID: createdEnvironment.ID,
-		Type:                 SourceAppTypeSalesforce,
-		Name:                 testSourceAppName,
-		Status:               SourceAppStatusPending,
+	sourceAppReq := CreateSourceAppRequest{
+		DatalakeID: createdDatalake.ID,
+		Type:       SourceAppTypeSalesforce,
+		Name:       testSourceAppName,
 	}
 
-	createdSourceApp, err := client.CreateSourceApp(sourceApp)
+	createdSourceApp, err := client.CreateSourceApp(sourceAppReq)
 	if err != nil {
 		t.Fatalf("Failed to create source app: %v", err)
 	}
 
 	t.Logf("Created source app: %+v", createdSourceApp)
 	assert.NotNil(t, createdSourceApp)
-	assert.Equal(t, sourceApp.Name, createdSourceApp.Name)
-	assert.Equal(t, sourceApp.Type, createdSourceApp.Type)
-	assert.Equal(t, sourceApp.DatalakeID, createdSourceApp.DatalakeID)
-	assert.Equal(t, sourceApp.HostingEnvironmentID, createdSourceApp.HostingEnvironmentID)
-	assert.Equal(t, sourceApp.Status, createdSourceApp.Status)
+	assert.Equal(t, sourceAppReq.Name, createdSourceApp.Name)
+	assert.Equal(t, sourceAppReq.Type, createdSourceApp.Type)
+	assert.Equal(t, sourceAppReq.DatalakeID, createdSourceApp.DatalakeID)
+	assert.Equal(t, createdEnvironment.ID, createdSourceApp.HostingEnvironmentID)
+	assert.Equal(t, SourceAppStatusPending, createdSourceApp.Status)
 
 	sourceApps, err := client.GetSourceApps()
 	if err != nil {
@@ -146,16 +140,19 @@ func TestSourceApps(t *testing.T) {
 	}
 	assert.True(t, found, "Test source app should be found in hosting environment source apps")
 
-	testSourceApp.Status = SourceAppStatusConnected
-	updatedSourceApp, err := client.UpdateSourceApp(testSourceApp.ID, testSourceApp)
+	newName := testSourceApp.Name + " updated"
+	updateReq := UpdateSourceAppRequest{
+		Name: &newName,
+	}
+	updatedSourceApp, err := client.UpdateSourceApp(testSourceApp.ID, updateReq)
 	if err != nil {
 		t.Fatalf("Failed to update source app: %v", err)
 	}
 
 	t.Logf("Updated source app: %+v", updatedSourceApp)
 	assert.NotNil(t, updatedSourceApp)
-	assert.Equal(t, testSourceApp.Name, updatedSourceApp.Name)
-	assert.Equal(t, SourceAppStatusConnected, updatedSourceApp.Status)
+	assert.Equal(t, newName, updatedSourceApp.Name)
+	// Note: Status update is not supported via UpdateSourceAppRequest
 
 	err = client.DeleteSourceApp(testSourceApp.ID)
 	if err != nil {
@@ -202,13 +199,14 @@ func TestSourceAppValidation(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid UUID format")
 
 	// Test UpdateSourceApp with empty ID
-	sourceApp := SourceApp{Name: "test"}
-	_, err = client.UpdateSourceApp("", sourceApp)
+	testName := "test"
+	updateReq := UpdateSourceAppRequest{Name: &testName}
+	_, err = client.UpdateSourceApp("", updateReq)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "id cannot be empty")
 
 	// Test UpdateSourceApp with invalid UUID
-	_, err = client.UpdateSourceApp("invalid-uuid", sourceApp)
+	_, err = client.UpdateSourceApp("invalid-uuid", updateReq)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid UUID format")
 

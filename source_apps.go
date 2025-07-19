@@ -25,38 +25,48 @@ const (
 	SourceAppTypeSalesforce SourceAppType = "Salesforce"
 )
 
+// Request types
+type CreateSourceAppRequest struct {
+	DatalakeID string        `json:"datalake_id"`
+	Type       SourceAppType `json:"type"`
+	Name       string        `json:"name"`
+}
+
+type UpdateSourceAppRequest struct {
+	Name *string `json:"name,omitempty"`
+}
+
+// Response type
 type SourceApp struct {
 	ID                   string          `json:"id"`
 	DatalakeID           string          `json:"datalake_id"`
-	PodID                string          `json:"pod_id,omitempty"`
 	HostingEnvironmentID string          `json:"hosting_environment_id"`
 	Type                 SourceAppType   `json:"type"`
 	Name                 string          `json:"name"`
-	OrgID                string          `json:"org_id"`
 	Status               SourceAppStatus `json:"status"`
-	CreatedAt            time.Time       `json:"created_at,omitempty"`
-	UpdatedAt            time.Time       `json:"updated_at,omitempty"`
+	CreatedAt            time.Time       `json:"created_at"`
+	UpdatedAt            time.Time       `json:"updated_at"`
 }
 
-func (c *Client) CreateSourceApp(sourceApp SourceApp) (*SourceApp, error) {
-	url := fmt.Sprintf("%s/source-apps", c.baseURL)
+func (c *Client) CreateSourceApp(req CreateSourceAppRequest) (*SourceApp, error) {
+	url := c.baseURL + "/source-apps"
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.apiKey,
 	}
 
-	jsonBody, err := json.Marshal(sourceApp)
+	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
+	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
-	req.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", headers["Authorization"])
+	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +86,7 @@ func (c *Client) CreateSourceApp(sourceApp SourceApp) (*SourceApp, error) {
 }
 
 func (c *Client) GetSourceApps() ([]SourceApp, error) {
-	url := fmt.Sprintf("%s/source-apps", c.baseURL)
+	url := c.baseURL + "/source-apps"
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.apiKey,
 	}
@@ -225,7 +235,7 @@ func (c *Client) GetSourceApp(id string) (*SourceApp, error) {
 	return &sourceApp, nil
 }
 
-func (c *Client) UpdateSourceApp(id string, sourceApp SourceApp) (*SourceApp, error) {
+func (c *Client) UpdateSourceApp(id string, req UpdateSourceAppRequest) (*SourceApp, error) {
 	if id == "" {
 		return nil, fmt.Errorf("id cannot be empty")
 	}
@@ -241,19 +251,19 @@ func (c *Client) UpdateSourceApp(id string, sourceApp SourceApp) (*SourceApp, er
 		"Authorization": "Bearer " + c.apiKey,
 	}
 
-	jsonBody, err := json.Marshal(sourceApp)
+	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonBody))
+	httpReq, err := http.NewRequest("PATCH", url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
-	req.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", headers["Authorization"])
+	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
