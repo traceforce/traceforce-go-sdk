@@ -25,26 +25,36 @@ const (
 	SourceAppTypeSalesforce SourceAppType = "Salesforce"
 )
 
+// Request types
+type CreateSourceAppRequest struct {
+	DatalakeID string        `json:"datalake_id"`
+	Type       SourceAppType `json:"type"`
+	Name       string        `json:"name"`
+}
+
+type UpdateSourceAppRequest struct {
+	Name *string `json:"name,omitempty"`
+}
+
+// Response type
 type SourceApp struct {
 	ID                   string          `json:"id"`
 	DatalakeID           string          `json:"datalake_id"`
-	PodID                string          `json:"pod_id,omitempty"`
 	HostingEnvironmentID string          `json:"hosting_environment_id"`
 	Type                 SourceAppType   `json:"type"`
 	Name                 string          `json:"name"`
-	OrgID                string          `json:"org_id"`
 	Status               SourceAppStatus `json:"status"`
-	CreatedAt            time.Time       `json:"created_at,omitempty"`
-	UpdatedAt            time.Time       `json:"updated_at,omitempty"`
+	CreatedAt            time.Time       `json:"created_at"`
+	UpdatedAt            time.Time       `json:"updated_at"`
 }
 
-func (c *Client) CreateSourceApp(sourceApp SourceApp) (*SourceApp, error) {
+func (c *Client) CreateSourceApp(req CreateSourceAppRequest) (*SourceApp, error) {
 	url := fmt.Sprintf("%s/source-apps", c.baseURL)
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.apiKey,
 	}
 
-	jsonBody, err := json.Marshal(sourceApp)
+	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +235,7 @@ func (c *Client) GetSourceApp(id string) (*SourceApp, error) {
 	return &sourceApp, nil
 }
 
-func (c *Client) UpdateSourceApp(id string, sourceApp SourceApp) (*SourceApp, error) {
+func (c *Client) UpdateSourceApp(id string, req UpdateSourceAppRequest) (*SourceApp, error) {
 	if id == "" {
 		return nil, fmt.Errorf("id cannot be empty")
 	}
@@ -241,12 +251,12 @@ func (c *Client) UpdateSourceApp(id string, sourceApp SourceApp) (*SourceApp, er
 		"Authorization": "Bearer " + c.apiKey,
 	}
 
-	jsonBody, err := json.Marshal(sourceApp)
+	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}

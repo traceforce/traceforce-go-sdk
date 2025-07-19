@@ -14,11 +14,10 @@ func TestDatalakes(t *testing.T) {
 	}
 
 	// First create a hosting environment for the datalake
-	awsProvider := CloudProviderAWS
 	environment := HostingEnvironment{
 		Name:          "test hosting environment for datalake",
 		Type:          HostingEnvironmentTypeCustomerManaged,
-		CloudProvider: &awsProvider,
+		CloudProvider: CloudProviderAWS,
 		NativeID:      "123456789012",
 		Status:        HostingEnvironmentStatusPending,
 	}
@@ -36,7 +35,6 @@ func TestDatalakes(t *testing.T) {
 
 	testDatalakeName := "test datalake"
 	datalake := Datalake{
-		PodID:                "", // Optional - backend can assign
 		HostingEnvironmentID: createdEnvironment.ID,
 		Type:                 DatalakeTypeBigQuery,
 		Name:                 testDatalakeName,

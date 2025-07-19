@@ -35,27 +35,39 @@ const (
 	CloudProviderAzure CloudProvider = "Azure"
 )
 
+// Request types
+type CreateHostingEnvironmentRequest struct {
+	Name          string                   `json:"name"`
+	Type          HostingEnvironmentType   `json:"type"`
+	CloudProvider CloudProvider            `json:"cloud_provider"`
+	NativeID      string                   `json:"native_id"`
+}
+
+type UpdateHostingEnvironmentRequest struct {
+	Name *string `json:"name,omitempty"`
+}
+
+// Response type
 type HostingEnvironment struct {
 	ID                       string                   `json:"id"`
 	Name                     string                   `json:"name"`
 	Type                     HostingEnvironmentType   `json:"type"`
-	CloudProvider            CloudProvider            `json:"cloud_provider,omitempty"`
+	CloudProvider            CloudProvider            `json:"cloud_provider"`
 	NativeID                 string                   `json:"native_id"`
 	Status                   HostingEnvironmentStatus `json:"status"`
-	OrgID                    string                   `json:"org_id"`
-	ControlPlaneAwsAccountId string                   `json:"control_plane_aws_account_id,omitempty"`
-	ControlPlaneRoleName     string                   `json:"control_plane_role_name,omitempty"`
-	CreatedAt                time.Time                `json:"created_at,omitempty"`
-	UpdatedAt                time.Time                `json:"updated_at,omitempty"`
+	ControlPlaneAwsAccountId string                   `json:"control_plane_aws_account_id"`
+	ControlPlaneRoleName     string                   `json:"control_plane_role_name"`
+	CreatedAt                time.Time                `json:"created_at"`
+	UpdatedAt                time.Time                `json:"updated_at"`
 }
 
-func (c *Client) CreateHostingEnvironment(env HostingEnvironment) (*HostingEnvironment, error) {
+func (c *Client) CreateHostingEnvironment(req CreateHostingEnvironmentRequest) (*HostingEnvironment, error) {
 	url := fmt.Sprintf("%s/hosting-environments", c.baseURL)
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.apiKey,
 	}
 
-	jsonBody, err := json.Marshal(env)
+	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
@@ -116,39 +128,6 @@ func (c *Client) GetHostingEnvironments() ([]HostingEnvironment, error) {
 	return environments, nil
 }
 
-func (c *Client) GetHostingEnvironmentByName(name string) (*HostingEnvironment, error) {
-	if name == "" {
-		return nil, fmt.Errorf("name cannot be empty")
-	}
-
-	url := c.baseURL + "/hosting-environments?name=" + url.QueryEscape(name)
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", headers["Authorization"])
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if err := validateResponse(resp); err != nil {
-		return nil, err
-	}
-
-	var environment HostingEnvironment
-	err = json.NewDecoder(resp.Body).Decode(&environment)
-	if err != nil {
-		return nil, err
-	}
-
-	return &environment, nil
-}
 
 func (c *Client) GetHostingEnvironment(id string) (*HostingEnvironment, error) {
 	if id == "" {
@@ -190,7 +169,7 @@ func (c *Client) GetHostingEnvironment(id string) (*HostingEnvironment, error) {
 	return &environment, nil
 }
 
-func (c *Client) UpdateHostingEnvironment(id string, env HostingEnvironment) (*HostingEnvironment, error) {
+func (c *Client) UpdateHostingEnvironment(id string, req UpdateHostingEnvironmentRequest) (*HostingEnvironment, error) {
 	if id == "" {
 		return nil, fmt.Errorf("id cannot be empty")
 	}
@@ -206,12 +185,12 @@ func (c *Client) UpdateHostingEnvironment(id string, env HostingEnvironment) (*H
 		"Authorization": "Bearer " + c.apiKey,
 	}
 
-	jsonBody, err := json.Marshal(env)
+	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}

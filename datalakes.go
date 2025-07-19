@@ -25,25 +25,35 @@ const (
 	DatalakeTypeBigQuery DatalakeType = "BigQuery"
 )
 
+// Request types
+type CreateDatalakeRequest struct {
+	HostingEnvironmentID string       `json:"hosting_environment_id"`
+	Type                 DatalakeType `json:"type"`
+	Name                 string       `json:"name"`
+}
+
+type UpdateDatalakeRequest struct {
+	Name *string `json:"name,omitempty"`
+}
+
+// Response type
 type Datalake struct {
 	ID                   string         `json:"id"`
-	PodID                string         `json:"pod_id,omitempty"`
 	HostingEnvironmentID string         `json:"hosting_environment_id"`
 	Type                 DatalakeType   `json:"type"`
 	Name                 string         `json:"name"`
-	OrgID                string         `json:"org_id"`
 	Status               DatalakeStatus `json:"status"`
-	CreatedAt            time.Time      `json:"created_at,omitempty"`
-	UpdatedAt            time.Time      `json:"updated_at,omitempty"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
 }
 
-func (c *Client) CreateDatalake(datalake Datalake) (*Datalake, error) {
+func (c *Client) CreateDatalake(req CreateDatalakeRequest) (*Datalake, error) {
 	url := fmt.Sprintf("%s/datalakes", c.baseURL)
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.apiKey,
 	}
 
-	jsonBody, err := json.Marshal(datalake)
+	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +194,7 @@ func (c *Client) GetDatalake(id string) (*Datalake, error) {
 	return &datalake, nil
 }
 
-func (c *Client) UpdateDatalake(id string, datalake Datalake) (*Datalake, error) {
+func (c *Client) UpdateDatalake(id string, req UpdateDatalakeRequest) (*Datalake, error) {
 	if id == "" {
 		return nil, fmt.Errorf("id cannot be empty")
 	}
@@ -200,12 +210,12 @@ func (c *Client) UpdateDatalake(id string, datalake Datalake) (*Datalake, error)
 		"Authorization": "Bearer " + c.apiKey,
 	}
 
-	jsonBody, err := json.Marshal(datalake)
+	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}

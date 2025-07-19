@@ -151,11 +151,10 @@ func TestPostConnection(t *testing.T) {
 	}
 
 	testEnvironmentName := "test hosting environment for post connection"
-	gcpProvider := CloudProviderGCP
 	environment := HostingEnvironment{
 		Name:          testEnvironmentName,
 		Type:          HostingEnvironmentTypeCustomerManaged,
-		CloudProvider: &gcpProvider,
+		CloudProvider: CloudProviderGCP,
 		NativeID:      "test-project-123",
 		Status:        HostingEnvironmentStatusPending,
 	}

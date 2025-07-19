@@ -35,7 +35,6 @@ func TestSourceApps(t *testing.T) {
 
 	// Create a datalake for the source app
 	datalake := Datalake{
-		PodID:                "", // Optional - backend can assign
 		HostingEnvironmentID: createdEnvironment.ID,
 		Type:                 DatalakeTypeBigQuery,
 		Name:                 "test datalake for source app",
@@ -56,7 +55,6 @@ func TestSourceApps(t *testing.T) {
 	testSourceAppName := "test source app"
 	sourceApp := SourceApp{
 		DatalakeID:           createdDatalake.ID,
-		PodID:                "", // Optional - backend can assign
 		HostingEnvironmentID: createdEnvironment.ID,
 		Type:                 SourceAppTypeSalesforce,
 		Name:                 testSourceAppName,
