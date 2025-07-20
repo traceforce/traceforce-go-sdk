@@ -48,16 +48,14 @@ type UpdateHostingEnvironmentRequest struct {
 
 // Response type
 type HostingEnvironment struct {
-	ID                       string                   `json:"id"`
-	Name                     string                   `json:"name"`
-	Type                     HostingEnvironmentType   `json:"type"`
-	CloudProvider            CloudProvider            `json:"cloud_provider"`
-	NativeID                 string                   `json:"native_id"`
-	Status                   HostingEnvironmentStatus `json:"status"`
-	ControlPlaneAwsAccountId string                   `json:"control_plane_aws_account_id"`
-	ControlPlaneRoleName     string                   `json:"control_plane_role_name"`
-	CreatedAt                time.Time                `json:"created_at"`
-	UpdatedAt                time.Time                `json:"updated_at"`
+	ID            string                   `json:"id"`
+	Name          string                   `json:"name"`
+	Type          HostingEnvironmentType   `json:"type"`
+	CloudProvider CloudProvider            `json:"cloud_provider"`
+	NativeID      string                   `json:"native_id"`
+	Status        HostingEnvironmentStatus `json:"status"`
+	CreatedAt     time.Time                `json:"created_at"`
+	UpdatedAt     time.Time                `json:"updated_at"`
 }
 
 func (c *Client) CreateHostingEnvironment(req CreateHostingEnvironmentRequest) (*HostingEnvironment, error) {

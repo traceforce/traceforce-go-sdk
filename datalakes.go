@@ -30,6 +30,8 @@ type CreateDatalakeRequest struct {
 	HostingEnvironmentID string       `json:"hosting_environment_id"`
 	Type                 DatalakeType `json:"type"`
 	Name                 string       `json:"name"`
+	EnvironmentNativeID  string       `json:"environment_native_id"`
+	Region               string       `json:"region"`
 }
 
 type UpdateDatalakeRequest struct {
@@ -43,6 +45,8 @@ type Datalake struct {
 	Type                 DatalakeType   `json:"type"`
 	Name                 string         `json:"name"`
 	Status               DatalakeStatus `json:"status"`
+	EnvironmentNativeID  string         `json:"environment_native_id"`
+	Region               string         `json:"region"`
 	CreatedAt            time.Time      `json:"created_at"`
 	UpdatedAt            time.Time      `json:"updated_at"`
 }
