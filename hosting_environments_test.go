@@ -160,18 +160,13 @@ func TestPostConnection(t *testing.T) {
 	assert.Equal(t, HostingEnvironmentStatusPending, createdEnvironment.Status)
 
 	// Execute post-connection
-	updatedEnvironment, err := client.PostConnection(createdEnvironment.ID)
+	postConnReq := &PostConnectionRequest{
+		TerraformModuleVersions: "{}",
+	}
+	err = client.PostConnection(createdEnvironment.ID, postConnReq)
 	if err != nil {
 		t.Fatalf("Failed to execute post-connection: %v", err)
 	}
-
-	t.Logf("Post-connection result: %+v", updatedEnvironment)
-	assert.NotNil(t, updatedEnvironment)
-	assert.Equal(t, createdEnvironment.ID, updatedEnvironment.ID)
-	assert.Equal(t, HostingEnvironmentStatusConnected, updatedEnvironment.Status)
-	assert.Equal(t, environmentReq.Name, updatedEnvironment.Name)
-	assert.Equal(t, environmentReq.Type, updatedEnvironment.Type)
-	assert.Equal(t, environmentReq.NativeID, updatedEnvironment.NativeID)
 }
 
 func TestPostConnectionValidation(t *testing.T) {
@@ -180,13 +175,50 @@ func TestPostConnectionValidation(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
+	// Create a valid request for ID validation tests
+	validReq := &PostConnectionRequest{
+		TerraformModuleVersions: "{}",
+	}
+
 	// Test PostConnection with empty ID
-	_, err = client.PostConnection("")
+	err = client.PostConnection("", validReq)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "id cannot be empty")
 
 	// Test PostConnection with invalid UUID
-	_, err = client.PostConnection("invalid-uuid")
+	err = client.PostConnection("invalid-uuid", validReq)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid UUID format")
+
+	// Test PostConnection with nil request
+	validUUID := "550e8400-e29b-41d4-a716-446655440000"
+	err = client.PostConnection(validUUID, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "request cannot be nil")
+
+	// Test PostConnection with empty terraform_module_versions
+	emptyReq := &PostConnectionRequest{
+		TerraformModuleVersions: "",
+	}
+	err = client.PostConnection(validUUID, emptyReq)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "terraform_module_versions cannot be empty")
+
+	// Test PostConnection with invalid JSON terraform_module_versions
+	invalidJSONReq := &PostConnectionRequest{
+		TerraformModuleVersions: "invalid-json",
+	}
+	err = client.PostConnection(validUUID, invalidJSONReq)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid terraform_module_versions JSON")
+
+	// Test PostConnection with valid JSON terraform_module_versions (should parse correctly)
+	// Note: This will fail with HTTP error since it's a real API call, but it validates JSON parsing
+	validJSONReq := &PostConnectionRequest{
+		TerraformModuleVersions: `{"base": {"version": "1.0.0"}, "connectors": {"bigquery": {"version": "2.0.0"}}}`,
+	}
+	err = client.PostConnection(validUUID, validJSONReq)
+	// This should fail with HTTP error, not JSON parsing error
+	assert.Error(t, err)
+	assert.NotContains(t, err.Error(), "invalid terraform_module_versions JSON")
 }

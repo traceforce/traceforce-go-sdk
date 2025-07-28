@@ -52,9 +52,9 @@ func TestSourceApps(t *testing.T) {
 
 	testSourceAppName := "test source app"
 	sourceAppReq := CreateSourceAppRequest{
-		DatalakeID: createdDatalake.ID,
-		Type:       SourceAppTypeSalesforce,
-		Name:       testSourceAppName,
+		HostingEnvironmentID: createdEnvironment.ID,
+		Type:                 SourceAppTypeSalesforce,
+		Name:                 testSourceAppName,
 	}
 
 	createdSourceApp, err := client.CreateSourceApp(sourceAppReq)
@@ -66,8 +66,7 @@ func TestSourceApps(t *testing.T) {
 	assert.NotNil(t, createdSourceApp)
 	assert.Equal(t, sourceAppReq.Name, createdSourceApp.Name)
 	assert.Equal(t, sourceAppReq.Type, createdSourceApp.Type)
-	assert.Equal(t, sourceAppReq.DatalakeID, createdSourceApp.DatalakeID)
-	assert.Equal(t, createdEnvironment.ID, createdSourceApp.HostingEnvironmentID)
+	assert.Equal(t, sourceAppReq.HostingEnvironmentID, createdSourceApp.HostingEnvironmentID)
 	assert.Equal(t, SourceAppStatusPending, createdSourceApp.Status)
 
 	sourceApps, err := client.GetSourceApps()
@@ -85,7 +84,6 @@ func TestSourceApps(t *testing.T) {
 		assert.NotNil(t, sa.ID)
 		assert.NotEmpty(t, sa.Name)
 		assert.NotEmpty(t, sa.Type)
-		assert.NotEmpty(t, sa.DatalakeID)
 		assert.NotEmpty(t, sa.HostingEnvironmentID)
 		assert.NotEmpty(t, sa.Status)
 
@@ -106,23 +104,6 @@ func TestSourceApps(t *testing.T) {
 	assert.Equal(t, testSourceApp.ID, sourceAppByID.ID)
 	assert.Equal(t, testSourceApp.Name, sourceAppByID.Name)
 
-	sourceAppsByDatalake, err := client.GetSourceAppsByDatalake(createdDatalake.ID)
-	if err != nil {
-		t.Fatalf("Failed to get source apps by datalake: %v", err)
-	}
-	t.Logf("Source apps by datalake: %+v", sourceAppsByDatalake)
-	assert.NotNil(t, sourceAppsByDatalake)
-	assert.NotEmpty(t, sourceAppsByDatalake)
-
-	found := false
-	for _, sa := range sourceAppsByDatalake {
-		if sa.ID == testSourceApp.ID {
-			found = true
-			break
-		}
-	}
-	assert.True(t, found, "Test source app should be found in datalake source apps")
-
 	sourceAppsByEnvironment, err := client.GetSourceAppsByHostingEnvironment(createdEnvironment.ID)
 	if err != nil {
 		t.Fatalf("Failed to get source apps by hosting environment: %v", err)
@@ -131,7 +112,7 @@ func TestSourceApps(t *testing.T) {
 	assert.NotNil(t, sourceAppsByEnvironment)
 	assert.NotEmpty(t, sourceAppsByEnvironment)
 
-	found = false
+	found := false
 	for _, sa := range sourceAppsByEnvironment {
 		if sa.ID == testSourceApp.ID {
 			found = true
@@ -168,15 +149,6 @@ func TestSourceAppValidation(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	// Test GetSourceAppsByDatalake with empty ID
-	_, err = client.GetSourceAppsByDatalake("")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "datalake ID cannot be empty")
-
-	// Test GetSourceAppsByDatalake with invalid UUID
-	_, err = client.GetSourceAppsByDatalake("invalid-uuid")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid UUID format")
 
 	// Test GetSourceAppsByHostingEnvironment with empty ID
 	_, err = client.GetSourceAppsByHostingEnvironment("")

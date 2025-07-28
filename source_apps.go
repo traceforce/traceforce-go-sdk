@@ -14,22 +14,23 @@ import (
 type SourceAppStatus string
 
 const (
-	SourceAppStatusPending      SourceAppStatus = "Pending"
-	SourceAppStatusDisconnected SourceAppStatus = "Disconnected"
-	SourceAppStatusConnected    SourceAppStatus = "Connected"
+	SourceAppStatusPending      SourceAppStatus = "pending"
+	SourceAppStatusDeployed     SourceAppStatus = "deployed"
+	SourceAppStatusDisconnected SourceAppStatus = "disconnected"
+	SourceAppStatusConnected    SourceAppStatus = "connected"
 )
 
 type SourceAppType string
 
 const (
-	SourceAppTypeSalesforce SourceAppType = "Salesforce"
+	SourceAppTypeSalesforce SourceAppType = "salesforce"
 )
 
 // Request types
 type CreateSourceAppRequest struct {
-	DatalakeID string        `json:"datalake_id"`
-	Type       SourceAppType `json:"type"`
-	Name       string        `json:"name"`
+	HostingEnvironmentID string        `json:"hosting_environment_id"`
+	Type                 SourceAppType `json:"type"`
+	Name                 string        `json:"name"`
 }
 
 type UpdateSourceAppRequest struct {
@@ -39,7 +40,6 @@ type UpdateSourceAppRequest struct {
 // Response type
 type SourceApp struct {
 	ID                   string          `json:"id"`
-	DatalakeID           string          `json:"datalake_id"`
 	HostingEnvironmentID string          `json:"hosting_environment_id"`
 	Type                 SourceAppType   `json:"type"`
 	Name                 string          `json:"name"`
@@ -115,45 +115,6 @@ func (c *Client) GetSourceApps() ([]SourceApp, error) {
 	return sourceApps, nil
 }
 
-func (c *Client) GetSourceAppsByDatalake(datalakeID string) ([]SourceApp, error) {
-	if datalakeID == "" {
-		return nil, fmt.Errorf("datalake ID cannot be empty")
-	}
-
-	// Validate UUID format
-	_, err := uuid.Parse(datalakeID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid UUID format: %v", err)
-	}
-
-	url := c.baseURL + "/source-apps?datalake_id=" + url.QueryEscape(datalakeID)
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", headers["Authorization"])
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if err := validateResponse(resp); err != nil {
-		return nil, err
-	}
-
-	var sourceApps []SourceApp
-	err = json.NewDecoder(resp.Body).Decode(&sourceApps)
-	if err != nil {
-		return nil, err
-	}
-
-	return sourceApps, nil
-}
 
 func (c *Client) GetSourceAppsByHostingEnvironment(hostingEnvironmentID string) ([]SourceApp, error) {
 	if hostingEnvironmentID == "" {

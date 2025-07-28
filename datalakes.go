@@ -14,15 +14,16 @@ import (
 type DatalakeStatus string
 
 const (
-	DatalakeStatusPending             DatalakeStatus = "Pending"
-	DatalakeStatusWaitingForUserInput DatalakeStatus = "Waiting for User Input"
-	DatalakeStatusReady               DatalakeStatus = "Ready"
+	DatalakeStatusPending             DatalakeStatus = "pending"
+	DatalakeStatusDeployed            DatalakeStatus = "deployed"
+	DatalakeStatusReady               DatalakeStatus = "ready"
+	DatalakeStatusFailed              DatalakeStatus = "failed"
 )
 
 type DatalakeType string
 
 const (
-	DatalakeTypeBigQuery DatalakeType = "BigQuery"
+	DatalakeTypeBigQuery DatalakeType = "bigquery"
 )
 
 // Request types
