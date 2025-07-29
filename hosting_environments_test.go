@@ -161,6 +161,12 @@ func TestPostConnection(t *testing.T) {
 
 	// Execute post-connection
 	postConnReq := &PostConnectionRequest{
+		Infrastructure: &Infrastructure{
+			Base: &BaseInfrastructure{
+				DataplaneIdentityIdentifier:  "test-service-account@test-project.iam.gserviceaccount.com",
+				WorkloadIdentityProviderName: "projects/123/locations/global/workloadIdentityPools/test-pool/providers/test-provider",
+			},
+		},
 		TerraformModuleVersions: "{}",
 	}
 	err = client.PostConnection(createdEnvironment.ID, postConnReq)
