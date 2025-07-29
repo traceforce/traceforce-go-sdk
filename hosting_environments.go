@@ -38,7 +38,8 @@ type Infrastructure struct {
 
 // BaseInfrastructure represents base infrastructure outputs
 type BaseInfrastructure struct {
-	DataplaneIdentityIdentifier string `json:"dataplane_identity_identifier"`
+	DataplaneIdentityIdentifier  string `json:"dataplane_identity_identifier"`
+	WorkloadIdentityProviderName string `json:"workload_identity_provider_name,omitempty"`
 }
 
 // BigQueryInfrastructure represents BigQuery datalake infrastructure outputs

@@ -161,6 +161,12 @@ func TestPostConnection(t *testing.T) {
 
 	// Execute post-connection
 	postConnReq := &PostConnectionRequest{
+		Infrastructure: &Infrastructure{
+			Base: &BaseInfrastructure{
+				DataplaneIdentityIdentifier:  "test-service-account@test-project.iam.gserviceaccount.com",
+				WorkloadIdentityProviderName: "projects/123/locations/global/workloadIdentityPools/test-pool/providers/test-provider",
+			},
+		},
 		TerraformModuleVersions: "{}",
 	}
 	err = client.PostConnection(createdEnvironment.ID, postConnReq)
@@ -221,4 +227,57 @@ func TestPostConnectionValidation(t *testing.T) {
 	// This should fail with HTTP error, not JSON parsing error
 	assert.Error(t, err)
 	assert.NotContains(t, err.Error(), "invalid terraform_module_versions JSON")
+}
+
+func TestPostConnectionWithWorkloadIdentity(t *testing.T) {
+	client, err := NewClient(os.Getenv("TRACEFORCE_API_KEY"), "", nil)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	testEnvironmentName := "test hosting environment for workload identity"
+	environmentReq := CreateHostingEnvironmentRequest{
+		Name:          testEnvironmentName,
+		Type:          HostingEnvironmentTypeCustomerManaged,
+		CloudProvider: CloudProviderGCP,
+		NativeID:      "test-project-workload-identity",
+	}
+
+	// Create hosting environment
+	createdEnvironment, err := client.CreateHostingEnvironment(environmentReq)
+	if err != nil {
+		t.Fatalf("Failed to create hosting environment: %v", err)
+	}
+	defer func() {
+		err := client.DeleteHostingEnvironment(createdEnvironment.ID)
+		if err != nil {
+			t.Logf("Failed to cleanup hosting environment: %v", err)
+		}
+	}()
+
+	// Test post-connection with workload identity provider name
+	postConnReq := &PostConnectionRequest{
+		Infrastructure: &Infrastructure{
+			Base: &BaseInfrastructure{
+				DataplaneIdentityIdentifier:  "test-dataplane@test-project.iam.gserviceaccount.com",
+				WorkloadIdentityProviderName: "projects/test-project/locations/global/workloadIdentityPools/traceforce-pool/providers/control-plane-aws",
+			},
+			BigQuery: &BigQueryInfrastructure{
+				TraceforceSchema:       "traceforce_dataset",
+				EventsSubscriptionName: "bigquery-events-subscription",
+			},
+		},
+		TerraformURL:                "https://github.com/traceforce/terraform-modules",
+		TerraformModuleVersions:     `{"base": {"version": "1.0.0"}, "bigquery": {"version": "1.0.0"}}`,
+		TerraformModuleVersionsHash: "sha256:abcdef123456",
+		DeployedDatalakeIds:         []string{"test-datalake-1"},
+		DeployedSourceAppIds:        []string{"test-source-app-1"},
+	}
+
+	err = client.PostConnection(createdEnvironment.ID, postConnReq)
+	if err != nil {
+		t.Fatalf("Failed to execute post-connection with workload identity: %v", err)
+	}
+
+	t.Logf("Successfully executed post-connection with workload identity provider")
 }
