@@ -25,8 +25,8 @@ type PostConnectionRequest struct {
 	TerraformURL                string          `json:"terraform_url"`
 	TerraformModuleVersions     string          `json:"terraform_module_versions"`     // JSON string
 	TerraformModuleVersionsHash string          `json:"terraform_module_versions_hash"`
-	DeployedDatalakeIds         []string        `json:"deployed_datalake_ids,omitempty"`
-	DeployedSourceAppIds        []string        `json:"deployed_source_app_ids,omitempty"`
+	DeployedDatalakeIds         []string        `json:"deployed_datalake_ids"`
+	DeployedSourceAppIds        []string        `json:"deployed_source_app_ids"`
 }
 
 // Infrastructure represents all connector-specific infrastructure outputs
@@ -38,8 +38,10 @@ type Infrastructure struct {
 
 // BaseInfrastructure represents base infrastructure outputs
 type BaseInfrastructure struct {
-	DataplaneIdentityIdentifier  string `json:"dataplane_identity_identifier"`
-	WorkloadIdentityProviderName string `json:"workload_identity_provider_name,omitempty"`
+	DataplaneIdentityIdentifier     string `json:"dataplane_identity_identifier"`
+	WorkloadIdentityProviderName    string `json:"workload_identity_provider_name"`
+	AuthViewGeneratorFunctionName   string `json:"auth_view_generator_function_name"`
+	TraceforceBucketName           string `json:"traceforce_bucket_name"`
 }
 
 // BigQueryInfrastructure represents BigQuery datalake infrastructure outputs

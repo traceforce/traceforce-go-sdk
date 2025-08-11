@@ -163,11 +163,15 @@ func TestPostConnection(t *testing.T) {
 	postConnReq := &PostConnectionRequest{
 		Infrastructure: &Infrastructure{
 			Base: &BaseInfrastructure{
-				DataplaneIdentityIdentifier:  "test-service-account@test-project.iam.gserviceaccount.com",
-				WorkloadIdentityProviderName: "projects/123/locations/global/workloadIdentityPools/test-pool/providers/test-provider",
+				DataplaneIdentityIdentifier:     "test-service-account@test-project.iam.gserviceaccount.com",
+				WorkloadIdentityProviderName:    "projects/123/locations/global/workloadIdentityPools/test-pool/providers/test-provider",
+				AuthViewGeneratorFunctionName:   "test-auth-view-generator-function",
+				TraceforceBucketName:           "test-traceforce-bucket",
 			},
 		},
 		TerraformModuleVersions: "{}",
+		DeployedDatalakeIds:     []string{"datalake-1", "datalake-2"},
+		DeployedSourceAppIds:    []string{"source-app-1", "source-app-2"},
 	}
 	err = client.PostConnection(createdEnvironment.ID, postConnReq)
 	if err != nil {
@@ -184,6 +188,8 @@ func TestPostConnectionValidation(t *testing.T) {
 	// Create a valid request for ID validation tests
 	validReq := &PostConnectionRequest{
 		TerraformModuleVersions: "{}",
+		DeployedDatalakeIds:     []string{},
+		DeployedSourceAppIds:    []string{},
 	}
 
 	// Test PostConnection with empty ID
@@ -205,6 +211,8 @@ func TestPostConnectionValidation(t *testing.T) {
 	// Test PostConnection with empty terraform_module_versions
 	emptyReq := &PostConnectionRequest{
 		TerraformModuleVersions: "",
+		DeployedDatalakeIds:     []string{},
+		DeployedSourceAppIds:    []string{},
 	}
 	err = client.PostConnection(validUUID, emptyReq)
 	assert.Error(t, err)
@@ -213,6 +221,8 @@ func TestPostConnectionValidation(t *testing.T) {
 	// Test PostConnection with invalid JSON terraform_module_versions
 	invalidJSONReq := &PostConnectionRequest{
 		TerraformModuleVersions: "invalid-json",
+		DeployedDatalakeIds:     []string{},
+		DeployedSourceAppIds:    []string{},
 	}
 	err = client.PostConnection(validUUID, invalidJSONReq)
 	assert.Error(t, err)
@@ -222,6 +232,8 @@ func TestPostConnectionValidation(t *testing.T) {
 	// Note: This will fail with HTTP error since it's a real API call, but it validates JSON parsing
 	validJSONReq := &PostConnectionRequest{
 		TerraformModuleVersions: `{"base": {"version": "1.0.0"}, "connectors": {"bigquery": {"version": "2.0.0"}}}`,
+		DeployedDatalakeIds:     []string{},
+		DeployedSourceAppIds:    []string{},
 	}
 	err = client.PostConnection(validUUID, validJSONReq)
 	// This should fail with HTTP error, not JSON parsing error
