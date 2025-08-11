@@ -41,6 +41,7 @@ type BaseInfrastructure struct {
 	DataplaneIdentityIdentifier     string `json:"dataplane_identity_identifier"`
 	WorkloadIdentityProviderName    string `json:"workload_identity_provider_name"`
 	AuthViewGeneratorFunctionName   string `json:"auth_view_generator_function_name"`
+	AuthViewGeneratorFunctionURL    string `json:"auth_view_generator_function_url"`
 	TraceforceBucketName           string `json:"traceforce_bucket_name"`
 }
 
