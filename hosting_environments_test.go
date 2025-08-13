@@ -180,6 +180,58 @@ func TestPostConnection(t *testing.T) {
 	}
 }
 
+func TestPostConnectionWithBigQuery(t *testing.T) {
+	client, err := NewClient(os.Getenv("TRACEFORCE_API_KEY"), "", nil)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	testEnvironmentName := "test hosting environment for post connection with bigquery"
+	environmentReq := CreateHostingEnvironmentRequest{
+		Name:          testEnvironmentName,
+		Type:          HostingEnvironmentTypeCustomerManaged,
+		CloudProvider: CloudProviderGCP,
+		NativeID:      "test-project-456",
+	}
+
+	// Create hosting environment
+	createdEnvironment, err := client.CreateHostingEnvironment(environmentReq)
+	if err != nil {
+		t.Fatalf("Failed to create hosting environment: %v", err)
+	}
+	defer func() {
+		err := client.DeleteHostingEnvironment(createdEnvironment.ID)
+		if err != nil {
+			t.Logf("Failed to cleanup hosting environment: %v", err)
+		}
+	}()
+
+	// Execute post-connection with BigQuery infrastructure
+	postConnReq := &PostConnectionRequest{
+		Infrastructure: &Infrastructure{
+			Base: &BaseInfrastructure{
+				DataplaneIdentityIdentifier:     "test-service-account@test-project.iam.gserviceaccount.com",
+				WorkloadIdentityProviderName:    "projects/456/locations/global/workloadIdentityPools/test-pool/providers/test-provider",
+				AuthViewGeneratorFunctionName:   "test-auth-view-generator-function",
+				AuthViewGeneratorFunctionURL:    "https://test-function-url.cloudfunctions.net/auth-view-generator",
+				TraceforceBucketName:           "test-traceforce-bucket",
+			},
+			BigQuery: &BigQueryInfrastructure{
+				TraceforceSchema:            "test_traceforce_dataset",
+				TraceforceSecureViewsSchema: "test_traceforce_secure_views_dataset",
+				EventsSubscriptionName:      "test-events-subscription",
+			},
+		},
+		TerraformModuleVersions: `{"bigquery": "v1.0.0"}`,
+		DeployedDatalakeIds:     []string{"datalake-1"},
+		DeployedSourceAppIds:    []string{},
+	}
+	err = client.PostConnection(createdEnvironment.ID, postConnReq)
+	if err != nil {
+		t.Fatalf("Failed to execute post-connection with BigQuery: %v", err)
+	}
+}
+
 func TestPostConnectionValidation(t *testing.T) {
 	client, err := NewClient(os.Getenv("TRACEFORCE_API_KEY"), "", nil)
 	if err != nil {

@@ -47,8 +47,9 @@ type BaseInfrastructure struct {
 
 // BigQueryInfrastructure represents BigQuery datalake infrastructure outputs
 type BigQueryInfrastructure struct {
-	TraceforceSchema       string `json:"traceforce_schema"`
-	EventsSubscriptionName string `json:"events_subscription_name"`
+	TraceforceSchema            string `json:"traceforce_schema"`
+	TraceforceSecureViewsSchema string `json:"traceforce_secure_views_schema"`
+	EventsSubscriptionName      string `json:"events_subscription_name"`
 }
 
 // SalesforceInfrastructure represents Salesforce source app infrastructure outputs
