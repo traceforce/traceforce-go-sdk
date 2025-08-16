@@ -61,7 +61,7 @@ func (c *Client) CreateSourceApp(req CreateSourceAppRequest) (*SourceApp, error)
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { httpReq.Header.Set(k, v) }
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)
@@ -211,7 +211,7 @@ func (c *Client) UpdateSourceApp(id string, req UpdateSourceAppRequest) (*Source
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { httpReq.Header.Set(k, v) }
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)

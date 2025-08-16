@@ -60,7 +60,7 @@ func (c *Client) CreateSourceAppDatalakeLink(req CreateSourceAppDatalakeLinkRequ
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { httpReq.Header.Set(k, v) }
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)
