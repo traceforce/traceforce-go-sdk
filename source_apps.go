@@ -50,9 +50,7 @@ type SourceApp struct {
 
 func (c *Client) CreateSourceApp(req CreateSourceAppRequest) (*SourceApp, error) {
 	url := c.baseURL + "/source-apps"
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
@@ -87,15 +85,13 @@ func (c *Client) CreateSourceApp(req CreateSourceAppRequest) (*SourceApp, error)
 
 func (c *Client) GetSourceApps() ([]SourceApp, error) {
 	url := c.baseURL + "/source-apps"
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -128,15 +124,13 @@ func (c *Client) GetSourceAppsByHostingEnvironment(hostingEnvironmentID string) 
 	}
 
 	url := c.baseURL + "/source-apps?hosting_environment_id=" + url.QueryEscape(hostingEnvironmentID)
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -168,15 +162,13 @@ func (c *Client) GetSourceApp(id string) (*SourceApp, error) {
 	}
 
 	url := c.baseURL + "/source-apps/" + id
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -208,9 +200,7 @@ func (c *Client) UpdateSourceApp(id string, req UpdateSourceAppRequest) (*Source
 	}
 
 	url := c.baseURL + "/source-apps/" + id
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
@@ -255,15 +245,13 @@ func (c *Client) DeleteSourceApp(id string) error {
 	}
 
 	url := c.baseURL + "/source-apps/" + id
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err

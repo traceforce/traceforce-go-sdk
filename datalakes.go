@@ -54,9 +54,7 @@ type Datalake struct {
 
 func (c *Client) CreateDatalake(req CreateDatalakeRequest) (*Datalake, error) {
 	url := c.baseURL + "/datalakes"
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
@@ -91,15 +89,13 @@ func (c *Client) CreateDatalake(req CreateDatalakeRequest) (*Datalake, error) {
 
 func (c *Client) GetDatalakes() ([]Datalake, error) {
 	url := c.baseURL + "/datalakes"
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -131,15 +127,13 @@ func (c *Client) GetDatalakesByHostingEnvironment(hostingEnvironmentID string) (
 	}
 
 	url := c.baseURL + "/datalakes?hosting_environment_id=" + url.QueryEscape(hostingEnvironmentID)
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -171,15 +165,13 @@ func (c *Client) GetDatalake(id string) (*Datalake, error) {
 	}
 
 	url := c.baseURL + "/datalakes/" + id
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -211,9 +203,7 @@ func (c *Client) UpdateDatalake(id string, req UpdateDatalakeRequest) (*Datalake
 	}
 
 	url := c.baseURL + "/datalakes/" + id
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
@@ -258,15 +248,13 @@ func (c *Client) DeleteDatalake(id string) error {
 	}
 
 	url := c.baseURL + "/datalakes/" + id
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
