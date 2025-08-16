@@ -100,9 +100,7 @@ type HostingEnvironment struct {
 
 func (c *Client) CreateHostingEnvironment(req CreateHostingEnvironmentRequest) (*HostingEnvironment, error) {
 	url := c.baseURL + "/hosting-environments"
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
@@ -137,15 +135,13 @@ func (c *Client) CreateHostingEnvironment(req CreateHostingEnvironmentRequest) (
 
 func (c *Client) GetHostingEnvironments() ([]HostingEnvironment, error) {
 	url := c.baseURL + "/hosting-environments"
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -178,15 +174,13 @@ func (c *Client) GetHostingEnvironment(id string) (*HostingEnvironment, error) {
 	}
 
 	url := c.baseURL + "/hosting-environments/" + id
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -218,9 +212,7 @@ func (c *Client) UpdateHostingEnvironment(id string, req UpdateHostingEnvironmen
 	}
 
 	url := c.baseURL + "/hosting-environments/" + id
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
@@ -265,15 +257,13 @@ func (c *Client) DeleteHostingEnvironment(id string) error {
 	}
 
 	url := c.baseURL + "/hosting-environments/" + id
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
@@ -314,9 +304,7 @@ func (c *Client) PostConnection(id string, req *PostConnectionRequest) error {
 	}
 
 	url := c.baseURL + "/hosting-environments/" + id + "/post-connection"
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	// Create request payload with infrastructure configuration and terraform metadata
 	payload := map[string]interface{}{

@@ -49,9 +49,7 @@ func (c *Client) CreateSourceAppDatalakeLink(req CreateSourceAppDatalakeLinkRequ
 	}
 
 	url := c.baseURL + "/source-apps-datalakes"
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
@@ -86,15 +84,13 @@ func (c *Client) CreateSourceAppDatalakeLink(req CreateSourceAppDatalakeLinkRequ
 
 func (c *Client) GetSourceAppDatalakeLinks() ([]SourceAppDatalakeLink, error) {
 	url := c.baseURL + "/source-apps-datalakes"
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -126,15 +122,13 @@ func (c *Client) GetSourceAppDatalakeLinksBySourceApp(sourceAppID string) ([]Sou
 	}
 
 	url := c.baseURL + "/source-apps-datalakes?source_app_id=" + url.QueryEscape(sourceAppID)
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -166,15 +160,13 @@ func (c *Client) GetSourceAppDatalakeLinksByDatalake(datalakeID string) ([]Sourc
 	}
 
 	url := c.baseURL + "/source-apps-datalakes?datalake_id=" + url.QueryEscape(datalakeID)
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -206,15 +198,13 @@ func (c *Client) GetSourceAppDatalakeLink(id string) (*SourceAppDatalakeLink, er
 	}
 
 	url := c.baseURL + "/source-apps-datalakes/" + id
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -246,15 +236,13 @@ func (c *Client) DeleteSourceAppDatalakeLink(id string) error {
 	}
 
 	url := c.baseURL + "/source-apps-datalakes/" + id
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.apiKey,
-	}
+	headers := c.buildHeaders()
 
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { req.Header.Set(k, v) }
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
