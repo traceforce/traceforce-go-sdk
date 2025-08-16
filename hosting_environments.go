@@ -111,7 +111,7 @@ func (c *Client) CreateHostingEnvironment(req CreateHostingEnvironmentRequest) (
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { httpReq.Header.Set(k, v) }
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)
@@ -223,7 +223,7 @@ func (c *Client) UpdateHostingEnvironment(id string, req UpdateHostingEnvironmen
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers { httpReq.Header.Set(k, v) }
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)
@@ -325,7 +325,9 @@ func (c *Client) PostConnection(id string, req *PostConnectionRequest) error {
 	if err != nil {
 		return err
 	}
-	httpReq.Header.Set("Authorization", headers["Authorization"])
+	for k, v := range headers {
+		httpReq.Header.Set(k, v)
+	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)
