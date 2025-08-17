@@ -165,7 +165,7 @@ func TestPostConnection(t *testing.T) {
 			Base: &BaseInfrastructure{
 				DataplaneIdentityIdentifier:     "test-service-account@test-project.iam.gserviceaccount.com",
 				WorkloadIdentityProviderName:    "projects/123/locations/global/workloadIdentityPools/test-pool/providers/test-provider",
-				AuthViewGeneratorFunctionName:   "test-auth-view-generator-function",
+				AuthViewGeneratorFunctionID:     "test-auth-view-generator-function",
 				AuthViewGeneratorFunctionURL:    "https://test-function-url.cloudfunctions.net/auth-view-generator",
 				TraceforceBucketName:           "test-traceforce-bucket",
 			},
@@ -212,7 +212,7 @@ func TestPostConnectionWithBigQuery(t *testing.T) {
 			Base: &BaseInfrastructure{
 				DataplaneIdentityIdentifier:     "test-service-account@test-project.iam.gserviceaccount.com",
 				WorkloadIdentityProviderName:    "projects/456/locations/global/workloadIdentityPools/test-pool/providers/test-provider",
-				AuthViewGeneratorFunctionName:   "test-auth-view-generator-function",
+				AuthViewGeneratorFunctionID:     "test-auth-view-generator-function",
 				AuthViewGeneratorFunctionURL:    "https://test-function-url.cloudfunctions.net/auth-view-generator",
 				TraceforceBucketName:           "test-traceforce-bucket",
 			},
