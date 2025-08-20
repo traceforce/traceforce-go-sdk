@@ -170,6 +170,7 @@ func TestPostConnection(t *testing.T) {
 				TraceforceBucketName:           "test-traceforce-bucket",
 			},
 		},
+		TerraformURL:            "https://github.com/traceforce/terraform-modules",
 		TerraformModuleVersions: "{}",
 		DeployedDatalakeIds:     []string{"datalake-1", "datalake-2"},
 		DeployedSourceAppIds:    []string{"source-app-1", "source-app-2"},
@@ -186,7 +187,7 @@ func TestPostConnectionWithBigQuery(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	testEnvironmentName := "test hosting environment for post connection with bigquery"
+	testEnvironmentName := "test hosting environment for post connection with bigquery and salesforce"
 	environmentReq := CreateHostingEnvironmentRequest{
 		Name:          testEnvironmentName,
 		Type:          HostingEnvironmentTypeCustomerManaged,
@@ -206,7 +207,7 @@ func TestPostConnectionWithBigQuery(t *testing.T) {
 		}
 	}()
 
-	// Execute post-connection with BigQuery infrastructure
+	// Execute post-connection with BigQuery and Salesforce infrastructure
 	postConnReq := &PostConnectionRequest{
 		Infrastructure: &Infrastructure{
 			Base: &BaseInfrastructure{
@@ -221,14 +222,20 @@ func TestPostConnectionWithBigQuery(t *testing.T) {
 				TraceforceSecureViewsSchema: "test_traceforce_secure_views_dataset",
 				EventsSubscriptionName:      "test-events-subscription",
 			},
+			Salesforce: &SalesforceInfrastructure{
+				ClientID:     "test_client_id_123",
+				Domain:       "test-company.my.salesforce.com",
+				ClientSecret: "projects/test/secrets/salesforce-secret/versions/latest",
+			},
 		},
-		TerraformModuleVersions: `{"bigquery": "v1.0.0"}`,
+		TerraformURL:            "https://github.com/traceforce/terraform-modules",
+		TerraformModuleVersions: `{"bigquery": "v1.0.0", "salesforce": "v1.0.0"}`,
 		DeployedDatalakeIds:     []string{"datalake-1"},
-		DeployedSourceAppIds:    []string{},
+		DeployedSourceAppIds:    []string{"source-app-1"},
 	}
 	err = client.PostConnection(createdEnvironment.ID, postConnReq)
 	if err != nil {
-		t.Fatalf("Failed to execute post-connection with BigQuery: %v", err)
+		t.Fatalf("Failed to execute post-connection with BigQuery and Salesforce: %v", err)
 	}
 }
 
