@@ -21,12 +21,11 @@ const (
 
 // PostConnectionRequest represents the infrastructure configuration for post-connection setup
 type PostConnectionRequest struct {
-	Infrastructure              *Infrastructure `json:"infrastructure"`
-	TerraformURL                string          `json:"terraform_url"`
-	TerraformModuleVersions     string          `json:"terraform_module_versions"`     // JSON string
-	TerraformModuleVersionsHash string          `json:"terraform_module_versions_hash"`
-	DeployedDatalakeIds         []string        `json:"deployed_datalake_ids"`
-	DeployedSourceAppIds        []string        `json:"deployed_source_app_ids"`
+	Infrastructure           *Infrastructure `json:"infrastructure"`
+	TerraformURL             string          `json:"terraform_url"`
+	TerraformModuleVersions  string          `json:"terraform_module_versions"`     // JSON string
+	DeployedDatalakeIds      []string        `json:"deployed_datalake_ids"`
+	DeployedSourceAppIds     []string        `json:"deployed_source_app_ids"`
 }
 
 // Infrastructure represents all connector-specific infrastructure outputs
@@ -308,12 +307,11 @@ func (c *Client) PostConnection(id string, req *PostConnectionRequest) error {
 
 	// Create request payload with infrastructure configuration and terraform metadata
 	payload := map[string]interface{}{
-		"infrastructure":                req.Infrastructure,
-		"terraform_url":                 req.TerraformURL,
-		"terraform_module_versions":     terraformModuleVersions,
-		"terraform_module_versions_hash": req.TerraformModuleVersionsHash,
-		"deployed_datalake_ids":         req.DeployedDatalakeIds,
-		"deployed_source_app_ids":       req.DeployedSourceAppIds,
+		"infrastructure":            req.Infrastructure,
+		"terraform_url":             req.TerraformURL,
+		"terraform_module_versions": terraformModuleVersions,
+		"deployed_datalake_ids":     req.DeployedDatalakeIds,
+		"deployed_source_app_ids":    req.DeployedSourceAppIds,
 	}
 
 	jsonPayload, err := json.Marshal(payload)
