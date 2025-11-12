@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://www.traceforce.co/api/v1"
+	defaultBaseURL = "https://api.traceforce.co/api/v1"
 )
 
 type Client struct {
@@ -35,7 +35,7 @@ func NewClient(key, url string, options *ClientOptions) (*Client, error) {
 	}
 
 	extraHeaders := make(map[string]string)
-	
+
 	// Copy user-provided headers
 	for k, v := range options.ExtraHeaders {
 		extraHeaders[k] = v
@@ -58,11 +58,11 @@ func (c *Client) buildHeaders() map[string]string {
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.apiKey,
 	}
-	
+
 	// Add extra headers
 	for k, v := range c.extraHeaders {
 		headers[k] = v
 	}
-	
+
 	return headers
 }
