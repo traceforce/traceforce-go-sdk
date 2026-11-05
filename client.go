@@ -120,6 +120,9 @@ func (c *Client) callAPI(method, path string, body, out any) error {
 		return &APIError{StatusCode: resp.StatusCode, Body: string(body)}
 	}
 	if out == nil {
+		// Read the unused answer to the end so the connection is reused; the call
+		// already succeeded, so a failed read here is not an error.
+		_, _ = io.Copy(io.Discard, resp.Body)
 		return nil
 	}
 	return json.NewDecoder(resp.Body).Decode(out)
