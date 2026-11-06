@@ -341,13 +341,15 @@ func (c *Client) PostConnection(id string, req *PostConnectionRequest) error {
 	return nil
 }
 
+// validateResponse turns an answer with HTTP 400 or above into an *APIError
+// (text "HTTP <status>: <body>").
 func validateResponse(resp *http.Response) error {
 	if resp.StatusCode >= 400 {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read error response body: %v", err)
 		}
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		return newAPIError(resp.StatusCode, body)
 	}
 	return nil
 }
