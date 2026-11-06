@@ -3,6 +3,7 @@ package traceforce
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,15 @@ type Client struct {
 	baseURL      string
 	apiKey       string
 	extraHeaders map[string]string
+	credentials  *Credentials // set by NewClientWithCredentials: log in again when the token expires
+}
+
+// Credentials of one of the org's API clients (Settings → API Clients).
+type Credentials struct {
+	ClientID     string
+	ClientSecret string
+	// DeviceID is who the token is for, e.g. CloudCollectorDeviceID("aws").
+	DeviceID string
 }
 
 type ClientOptions struct {
@@ -57,41 +67,75 @@ func NewClient(key, url string, options *ClientOptions) (*Client, error) {
 	}, nil
 }
 
-// NewClientWithCredentials logs in with one of the org's API clients
-// (Settings → API Clients) and returns a client using that token.
-// deviceID is who the token is for, e.g. "cloud-collector-aws".
-// The token lives 7 days; a Terraform run is much shorter.
-func NewClientWithCredentials(clientID, clientSecret, deviceID, url string, options *ClientOptions) (*Client, error) {
+// NewClientWithCredentials logs in with one of the org's API clients and
+// returns a client using that token. When the token expires (an answer with
+// HTTP 401), the client logs in again once and repeats the request.
+func NewClientWithCredentials(creds Credentials, url string, options *ClientOptions) (*Client, error) {
 	c, err := NewClient("", url, options)
 	if err != nil {
 		return nil, err
 	}
-	var res struct {
-		AccessToken string `json:"access_token"`
+	c.credentials = &creds
+	if err := c.login(); err != nil {
+		return nil, err
 	}
-	login := map[string]string{"client_id": clientID, "client_secret": clientSecret, "device_id": deviceID}
-	if err := c.callAPI(http.MethodPost, "/api-keys", login, &res); err != nil {
-		return nil, fmt.Errorf("login with the API client failed: %w", err)
-	}
-	if res.AccessToken == "" {
-		return nil, fmt.Errorf("login with the API client returned no token")
-	}
-	c.apiKey = res.AccessToken
 	return c, nil
 }
 
-// APIError is an answer with status 400 or above (same text as validateResponse).
-// Callers can read the status: errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound.
+// login gets a new token at POST /api-keys with the client's credentials.
+func (c *Client) login() error {
+	var res struct {
+		AccessToken string `json:"access_token"`
+	}
+	login := map[string]string{
+		"client_id": c.credentials.ClientID, "client_secret": c.credentials.ClientSecret, "device_id": c.credentials.DeviceID,
+	}
+	c.apiKey = ""
+	if err := c.send(http.MethodPost, "/api-keys", login, &res); err != nil {
+		return fmt.Errorf("login with the API client failed: %w", err)
+	}
+	if res.AccessToken == "" {
+		return fmt.Errorf("login with the API client returned no token")
+	}
+	c.apiKey = res.AccessToken
+	return nil
+}
+
+// APIError is an answer with a status outside 2xx. Its text is "HTTP <status>: <body>".
+// Callers can read the status and the answer's "code" field, if any:
+// errors.As(err, &apiErr) && apiErr.Code == "collector_too_old".
 type APIError struct {
 	StatusCode int
 	Body       string
+	Code       string // the "code" field of a JSON answer, e.g. "connection_not_found"; "" if none
 }
 
 func (e *APIError) Error() string { return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Body) }
 
-// callAPI sends one request to the Traceforce API: body as JSON (if not nil), JSON answer into out (if not nil).
-// A 400+ answer is an *APIError.
+func newAPIError(status int, body []byte) *APIError {
+	var answer struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal(body, &answer) // not JSON: no code
+	return &APIError{StatusCode: status, Body: string(body), Code: answer.Code}
+}
+
+// callAPI sends one request to the Traceforce API: body as JSON (if not nil),
+// JSON answer into out (if not nil). An answer outside 2xx is an *APIError.
+// With credentials, an expired token (401) is renewed once.
 func (c *Client) callAPI(method, path string, body, out any) error {
+	err := c.send(method, path, body, out)
+	var apiErr *APIError
+	if c.credentials != nil && errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusUnauthorized {
+		if loginErr := c.login(); loginErr != nil {
+			return loginErr
+		}
+		return c.send(method, path, body, out)
+	}
+	return err
+}
+
+func (c *Client) send(method, path string, body, out any) error {
 	var reader io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -115,11 +159,11 @@ func (c *Client) callAPI(method, path string, body, out any) error {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 { // only 2xx is success (a 3xx or 1xx too is an error)
 		body, _ := io.ReadAll(resp.Body)
-		return &APIError{StatusCode: resp.StatusCode, Body: string(body)}
+		return newAPIError(resp.StatusCode, body)
 	}
-	if out == nil {
+	if out == nil || resp.StatusCode == http.StatusNoContent {
 		// Read the unused answer to the end so the connection is reused; the call
 		// already succeeded, so a failed read here is not an error.
 		_, _ = io.Copy(io.Discard, resp.Body)
