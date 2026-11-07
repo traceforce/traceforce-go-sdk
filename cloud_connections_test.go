@@ -3,10 +3,12 @@ package traceforce
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -167,7 +169,7 @@ func TestCreateCloudConnectionOldBundle(t *testing.T) {
 	var apiErr *APIError
 	assert.True(t, errors.As(err, &apiErr), "426 comes back as *APIError")
 	assert.Equal(t, http.StatusUpgradeRequired, apiErr.StatusCode)
-	assert.Equal(t, ErrCollectorTooOld, apiErr.Code)
+	assert.Equal(t, CodeCollectorTooOld, apiErr.Code)
 	assert.EqualError(t, err, "HTTP 426: "+reply)
 }
 
@@ -350,4 +352,48 @@ func TestBuildHeadersWithoutKey(t *testing.T) {
 func TestCloudCollectorDeviceID(t *testing.T) {
 	assert.Equal(t, "cloud-collector-aws", CloudCollectorDeviceID("aws"))
 	assert.Equal(t, "cloud-collector-m365", CloudCollectorDeviceID("m365"))
+}
+
+func TestExpiredTokenIsRenewedOnceForManyCalls(t *testing.T) {
+	var mu sync.Mutex
+	logins := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		if r.URL.Path == "/api-keys" {
+			logins++
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"access_token":"tok-%d"}`, logins)))
+			return
+		}
+		if r.Header.Get("Authorization") != fmt.Sprintf("Bearer tok-%d", logins) || logins == 1 {
+			w.WriteHeader(http.StatusUnauthorized) // only the newest token, and not the first one, is valid
+			return
+		}
+		_, _ = w.Write([]byte(connJSON))
+	}))
+	defer srv.Close()
+
+	c, err := NewClientWithCredentials(testCreds, srv.URL, nil)
+	assert.NoError(t, err)
+	var wg sync.WaitGroup
+	errs := make([]error, 10)
+	for i := range errs {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			_, errs[i] = c.GetCloudConnection(testConnID)
+		}(i)
+	}
+	wg.Wait()
+	for _, err := range errs {
+		assert.NoError(t, err, "every call succeeds with the renewed token")
+	}
+	assert.Equal(t, 2, logins, "10 calls that get 401 at once make one new login, not 10")
+}
+
+func TestExistingCallsUseTheSameSuccessRule(t *testing.T) {
+	rec := httptest.NewRecorder()
+	rec.WriteHeader(http.StatusNotModified)
+	var apiErr *APIError
+	assert.True(t, errors.As(validateResponse(rec.Result()), &apiErr), "a 3xx is an *APIError on the existing calls too")
 }

@@ -61,9 +61,13 @@ type CloudConnection struct {
 	Created bool `json:"created,omitempty"`
 }
 
-// ErrCollectorTooOld is the APIError code when the bundle is older than the
-// cloud's minimum version (HTTP 426); nothing was created.
-const ErrCollectorTooOld = "collector_too_old"
+// APIError codes of the cloud-connection routes.
+const (
+	// CodeCollectorTooOld: the bundle is older than the cloud's minimum version (HTTP 426); nothing was created.
+	CodeCollectorTooOld = "collector_too_old"
+	// CodeConnectionNotFound: the org has no such cloud connection (HTTP 404).
+	CodeConnectionNotFound = "connection_not_found"
+)
 
 // CreateCloudConnection registers the account, or answers the same connection
 // when this org already has it (Created false).
@@ -79,7 +83,7 @@ func (c *Client) CreateCloudConnection(req CreateCloudConnectionRequest) (*Cloud
 }
 
 // GetCloudConnection returns the connection, or nil, nil when it does not
-// exist (or was disconnected): see IsNotFound.
+// exist (or was disconnected): see IsCloudConnectionNotFound.
 func (c *Client) GetCloudConnection(id string) (*CloudConnection, error) {
 	return c.connectionCall(http.MethodGet, id, "", nil)
 }
@@ -95,8 +99,8 @@ func (c *Client) PutCloudConnectionDeployment(id string, d CloudConnectionDeploy
 }
 
 // DeleteCloudConnectionDeployment clears the recorded collector (DeployedAt,
-// CollectorID, IdentityID) and returns the connection; nil, nil when the
-// connection does not exist any more.
+// CollectorID, IdentityID) and returns the connection, also a disconnected
+// one; nil, nil when the org has no such connection.
 func (c *Client) DeleteCloudConnectionDeployment(id string) (*CloudConnection, error) {
 	return c.connectionCall(http.MethodDelete, id, "/deployment", nil)
 }
@@ -107,7 +111,7 @@ func (c *Client) DeleteCloudConnection(id string) error {
 	if err != nil {
 		return err
 	}
-	if err := c.callAPI(http.MethodDelete, path, nil, nil); err != nil && !IsNotFound(err) {
+	if err := c.callAPI(http.MethodDelete, path, nil, nil); err != nil && !IsCloudConnectionNotFound(err) {
 		return err
 	}
 	return nil
@@ -122,7 +126,7 @@ func (c *Client) connectionCall(method, id, suffix string, body any) (*CloudConn
 	}
 	var conn CloudConnection
 	if err := c.callAPI(method, path+suffix, body, &conn); err != nil {
-		if IsNotFound(err) {
+		if IsCloudConnectionNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
@@ -141,11 +145,12 @@ func connectionPath(id string) (string, error) {
 	return "/cloud-connections/" + u.String(), nil
 }
 
-// IsNotFound reports whether err says the cloud connection does not exist (or
-// was disconnected). Only the API's own answer counts (HTTP 404 with code
-// "connection_not_found"); any other 404, e.g. a wrong base URL or a backend
-// without these routes, is a real error.
-func IsNotFound(err error) bool {
+// IsCloudConnectionNotFound reports whether err says the cloud connection does
+// not exist (or was disconnected). Only the API's own answer counts: HTTP 404
+// with code CodeConnectionNotFound, which a Traceforce backend with the
+// cloud-connection routes sends. Any other 404 (a wrong base URL, an older
+// backend) is a real error.
+func IsCloudConnectionNotFound(err error) bool {
 	var apiErr *APIError
-	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound && apiErr.Code == "connection_not_found"
+	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound && apiErr.Code == CodeConnectionNotFound
 }

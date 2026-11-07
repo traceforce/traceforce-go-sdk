@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -17,9 +18,11 @@ const (
 type Client struct {
 	httpClient   *http.Client
 	baseURL      string
-	apiKey       string
+	apiKey       string // the token; read and written under mu (a client is shared by goroutines)
 	extraHeaders map[string]string
 	credentials  *Credentials // set by NewClientWithCredentials: log in again when the token expires
+	mu           sync.RWMutex // guards apiKey
+	loginMu      sync.Mutex   // one renewal at a time
 }
 
 // Credentials of one of the org's API clients (Settings → API Clients).
@@ -69,41 +72,58 @@ func NewClient(key, url string, options *ClientOptions) (*Client, error) {
 
 // NewClientWithCredentials logs in with one of the org's API clients and
 // returns a client using that token. When the token expires (an answer with
-// HTTP 401), the client logs in again once and repeats the request.
+// HTTP 401), the cloud-connection calls log in again once and repeat the
+// request; the other calls (datalakes, hosting environments, source apps,
+// links) use the token as it is.
 func NewClientWithCredentials(creds Credentials, url string, options *ClientOptions) (*Client, error) {
 	c, err := NewClient("", url, options)
 	if err != nil {
 		return nil, err
 	}
 	c.credentials = &creds
-	if err := c.login(); err != nil {
+	if err := c.renewToken(""); err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 
-// login gets a new token at POST /api-keys with the client's credentials.
-func (c *Client) login() error {
+// token is the current token ("" before the first login).
+func (c *Client) token() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.apiKey
+}
+
+// renewToken logs in again with the client's credentials, unless another
+// goroutine already replaced the token that failed (then its new token is used).
+func (c *Client) renewToken(failed string) error {
+	c.loginMu.Lock()
+	defer c.loginMu.Unlock()
+	if c.token() != failed {
+		return nil
+	}
 	var res struct {
 		AccessToken string `json:"access_token"`
 	}
 	login := map[string]string{
 		"client_id": c.credentials.ClientID, "client_secret": c.credentials.ClientSecret, "device_id": c.credentials.DeviceID,
 	}
-	c.apiKey = ""
-	if err := c.send(http.MethodPost, "/api-keys", login, &res); err != nil {
+	if err := c.send(http.MethodPost, "/api-keys", "", login, &res); err != nil {
 		return fmt.Errorf("login with the API client failed: %w", err)
 	}
 	if res.AccessToken == "" {
 		return fmt.Errorf("login with the API client returned no token")
 	}
+	c.mu.Lock()
 	c.apiKey = res.AccessToken
+	c.mu.Unlock()
 	return nil
 }
 
-// APIError is an answer with a status outside 2xx. Its text is "HTTP <status>: <body>".
-// Callers can read the status and the answer's "code" field, if any:
-// errors.As(err, &apiErr) && apiErr.Code == "collector_too_old".
+// APIError is an answer with a status outside 2xx, from every call of this
+// client. Its text is "HTTP <status>: <body>". Callers can read the status and
+// the answer's "code" field, if any:
+// errors.As(err, &apiErr) && apiErr.Code == CodeCollectorTooOld.
 type APIError struct {
 	StatusCode int
 	Body       string
@@ -120,22 +140,27 @@ func newAPIError(status int, body []byte) *APIError {
 	return &APIError{StatusCode: status, Body: string(body), Code: answer.Code}
 }
 
+// isSuccess is the one success rule of this client: 2xx only.
+func isSuccess(status int) bool { return status >= 200 && status < 300 }
+
 // callAPI sends one request to the Traceforce API: body as JSON (if not nil),
 // JSON answer into out (if not nil). An answer outside 2xx is an *APIError.
 // With credentials, an expired token (401) is renewed once.
 func (c *Client) callAPI(method, path string, body, out any) error {
-	err := c.send(method, path, body, out)
+	token := c.token()
+	err := c.send(method, path, token, body, out)
 	var apiErr *APIError
 	if c.credentials != nil && errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusUnauthorized {
-		if loginErr := c.login(); loginErr != nil {
+		if loginErr := c.renewToken(token); loginErr != nil {
 			return loginErr
 		}
-		return c.send(method, path, body, out)
+		return c.send(method, path, c.token(), body, out)
 	}
 	return err
 }
 
-func (c *Client) send(method, path string, body, out any) error {
+// send makes one request with this token ("" sends no Authorization).
+func (c *Client) send(method, path, token string, body, out any) error {
 	var reader io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -148,7 +173,7 @@ func (c *Client) send(method, path string, body, out any) error {
 	if err != nil {
 		return err
 	}
-	for k, v := range c.buildHeaders() {
+	for k, v := range c.headers(token) {
 		req.Header.Set(k, v)
 	}
 	if body != nil {
@@ -159,9 +184,8 @@ func (c *Client) send(method, path string, body, out any) error {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 { // only 2xx is success (a 3xx or 1xx too is an error)
-		body, _ := io.ReadAll(resp.Body)
-		return newAPIError(resp.StatusCode, body)
+	if err := validateResponse(resp); err != nil {
+		return err
 	}
 	if out == nil || resp.StatusCode == http.StatusNoContent {
 		// Read the unused answer to the end so the connection is reused; the call
@@ -173,11 +197,13 @@ func (c *Client) send(method, path string, body, out any) error {
 }
 
 // buildHeaders creates a headers map with authorization and any extra headers
-func (c *Client) buildHeaders() map[string]string {
+func (c *Client) buildHeaders() map[string]string { return c.headers(c.token()) }
+
+func (c *Client) headers(token string) map[string]string {
 	headers := map[string]string{}
 	// No token yet while logging in (NewClientWithCredentials).
-	if c.apiKey != "" {
-		headers["Authorization"] = "Bearer " + c.apiKey
+	if token != "" {
+		headers["Authorization"] = "Bearer " + token
 	}
 
 	// Add extra headers
