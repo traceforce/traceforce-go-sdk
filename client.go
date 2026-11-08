@@ -22,8 +22,14 @@ type Client struct {
 	extraHeaders map[string]string
 	credentials  *Credentials // set by NewClientWithCredentials: log in again when the token expires
 	mu           sync.RWMutex // guards apiKey
-	loginMu      sync.Mutex   // one renewal at a time
+	loginMu      sync.Mutex   // one renewal at a time; guards the two fields below
+	renewErr     error        // the last failed renewal ...
+	renewErrAt   time.Time    // ... and when, so the calls waiting on it share it instead of each logging in again
 }
+
+// renewErrShared is how long the calls that waited on a failed renewal get its
+// error instead of trying again (each try may take the 30s timeout).
+const renewErrShared = 10 * time.Second
 
 // Credentials of one of the org's API clients (Settings → API Clients).
 type Credentials struct {
@@ -95,13 +101,27 @@ func (c *Client) token() string {
 }
 
 // renewToken logs in again with the client's credentials, unless another
-// goroutine already replaced the token that failed (then its new token is used).
+// goroutine already replaced the token that failed (then its new token is
+// used) or a renewal just failed (then its error is returned).
 func (c *Client) renewToken(failed string) error {
 	c.loginMu.Lock()
 	defer c.loginMu.Unlock()
 	if c.token() != failed {
 		return nil
 	}
+	if c.renewErr != nil && time.Since(c.renewErrAt) < renewErrShared {
+		return c.renewErr
+	}
+	if err := c.login(); err != nil {
+		c.renewErr, c.renewErrAt = err, time.Now()
+		return err
+	}
+	c.renewErr = nil
+	return nil
+}
+
+// login gets a new token at POST /api-keys (sent without Authorization) and keeps it.
+func (c *Client) login() error {
 	var res struct {
 		AccessToken string `json:"access_token"`
 	}

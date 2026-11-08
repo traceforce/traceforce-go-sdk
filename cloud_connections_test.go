@@ -99,6 +99,7 @@ func TestExpiredTokenLogsInAgainOnce(t *testing.T) {
 	assert.Equal(t, 2, logins, "one new login after the 401")
 	assert.Equal(t, []string{"/api-keys", "/cloud-connections/" + testConnID, "/api-keys", "/cloud-connections/" + testConnID},
 		[]string{got[0].path, got[1].path, got[2].path, got[3].path}, "the request is repeated once with the new token")
+	assert.Equal(t, "", got[2].auth, "the renewal login is sent without the expired token")
 }
 
 func TestUnauthorizedWithoutCredentialsIsAnError(t *testing.T) {
@@ -376,14 +377,17 @@ func TestExpiredTokenIsRenewedOnceForManyCalls(t *testing.T) {
 	c, err := NewClientWithCredentials(testCreds, srv.URL, nil)
 	assert.NoError(t, err)
 	var wg sync.WaitGroup
+	start := make(chan struct{}) // all calls start together, so their 401s overlap
 	errs := make([]error, 10)
 	for i := range errs {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
+			<-start
 			_, errs[i] = c.GetCloudConnection(testConnID)
 		}(i)
 	}
+	close(start)
 	wg.Wait()
 	for _, err := range errs {
 		assert.NoError(t, err, "every call succeeds with the renewed token")
@@ -396,4 +400,44 @@ func TestExistingCallsUseTheSameSuccessRule(t *testing.T) {
 	rec.WriteHeader(http.StatusNotModified)
 	var apiErr *APIError
 	assert.True(t, errors.As(validateResponse(rec.Result()), &apiErr), "a 3xx is an *APIError on the existing calls too")
+}
+
+func TestFailedRenewalIsSharedByTheWaitingCalls(t *testing.T) {
+	var mu sync.Mutex
+	logins := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		if r.URL.Path == "/api-keys" {
+			logins++
+			if logins > 1 { // the login service is down after the first login
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			_, _ = w.Write([]byte(`{"access_token":"tok-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized) // the token has expired
+	}))
+	defer srv.Close()
+
+	c, err := NewClientWithCredentials(testCreds, srv.URL, nil)
+	assert.NoError(t, err)
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	errs := make([]error, 10)
+	for i := range errs {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			_, errs[i] = c.GetCloudConnection(testConnID)
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	for _, err := range errs {
+		assert.ErrorContains(t, err, "login with the API client failed: HTTP 503")
+	}
+	assert.Equal(t, 2, logins, "10 calls waiting on one failed renewal share its error: one failed login, not 10")
 }
