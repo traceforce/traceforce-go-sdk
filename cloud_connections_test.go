@@ -404,7 +404,8 @@ func TestExistingCallsUseTheSameSuccessRule(t *testing.T) {
 
 func TestFailedRenewalIsSharedByTheWaitingCalls(t *testing.T) {
 	var mu sync.Mutex
-	logins := 0
+	logins, calls := 0, 0
+	allSent := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -417,6 +418,12 @@ func TestFailedRenewalIsSharedByTheWaitingCalls(t *testing.T) {
 			_, _ = w.Write([]byte(`{"access_token":"tok-1"}`))
 			return
 		}
+		if calls++; calls == 10 {
+			close(allSent)
+		}
+		mu.Unlock()
+		<-allSent // answer once all 10 calls are in flight, so all of them overlap the one renewal
+		mu.Lock()
 		w.WriteHeader(http.StatusUnauthorized) // the token has expired
 	}))
 	defer srv.Close()
@@ -439,5 +446,59 @@ func TestFailedRenewalIsSharedByTheWaitingCalls(t *testing.T) {
 	for _, err := range errs {
 		assert.ErrorContains(t, err, "login with the API client failed: HTTP 503")
 	}
-	assert.Equal(t, 2, logins, "10 calls waiting on one failed renewal share its error: one failed login, not 10")
+	assert.Equal(t, 2, logins, "10 calls in flight during one failed renewal share its error: one failed login, not 10")
+}
+
+func TestFailedRenewalIsTriedAgainByTheNextCall(t *testing.T) {
+	logins := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api-keys" {
+			logins++
+			if logins == 2 { // the login service is down once
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"access_token":"tok-%d"}`, logins)))
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer tok-3" {
+			w.WriteHeader(http.StatusUnauthorized) // tok-1 has expired
+			return
+		}
+		_, _ = w.Write([]byte(connJSON))
+	}))
+	defer srv.Close()
+
+	c, err := NewClientWithCredentials(testCreds, srv.URL, nil)
+	assert.NoError(t, err)
+	_, err = c.GetCloudConnection(testConnID)
+	assert.ErrorContains(t, err, "login with the API client failed: HTTP 503")
+	_, err = c.GetCloudConnection(testConnID)
+	assert.NoError(t, err, "the next call logs in again instead of getting the old error")
+	assert.Equal(t, 3, logins)
+}
+
+func TestExtraAuthorizationDoesNotReplaceTheToken(t *testing.T) {
+	var got []seen
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, seen{r.Method, r.URL.Path, r.Header.Get("Authorization"), map[string]any{"x-a": r.Header.Get("X-A")}})
+		if r.URL.Path == "/api-keys" {
+			_, _ = w.Write([]byte(`{"access_token":"tok-123"}`))
+			return
+		}
+		_, _ = w.Write([]byte(connJSON))
+	}))
+	defer srv.Close()
+	extra := map[string]string{"Authorization": "Basic proxy-cred", "authorization": "Basic other", "x-a": "1"}
+
+	c, err := NewClientWithCredentials(testCreds, srv.URL, &ClientOptions{ExtraHeaders: extra})
+	assert.NoError(t, err)
+	_, err = c.GetCloudConnection(testConnID)
+	assert.NoError(t, err)
+	assert.Equal(t, seen{"POST", "/api-keys", "", map[string]any{"x-a": "1"}}, got[0], "the login has no Authorization")
+	assert.Equal(t, seen{"GET", "/cloud-connections/" + testConnID, "Bearer tok-123", map[string]any{"x-a": "1"}}, got[1], "a call sends the token")
+	assert.Equal(t, "Bearer tok-123", c.buildHeaders()["Authorization"], "the older calls too")
+
+	static, _ := NewClient("tok", srv.URL, &ClientOptions{ExtraHeaders: map[string]string{"Authorization": "Basic proxy-cred"}})
+	assert.Equal(t, "Basic proxy-cred", static.buildHeaders()["Authorization"], "a client made with a key still lets ExtraHeaders replace it")
 }
