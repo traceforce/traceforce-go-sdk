@@ -11,8 +11,8 @@ func TestNewClientWithExtraHeaders(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	
-	if client1.apiKey != "test-key" {
-		t.Errorf("Expected apiKey 'test-key', got '%s'", client1.apiKey)
+	if client1.auth.token != "test-key" {
+		t.Errorf("Expected apiKey 'test-key', got '%s'", client1.auth.token)
 	}
 	
 	if client1.baseURL != "https://example.com" {
