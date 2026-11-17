@@ -43,7 +43,7 @@ func fakeAPI(t *testing.T, status int, reply string, got *[]seen) *httptest.Serv
 }
 
 // connJSON is a connection as the API answers it.
-const connJSON = `{"id":"` + testConnID + `","provider":"aws","account":"522814721969","name":null,"status":1,
+const connJSON = `{"id":"` + testConnID + `","provider":"aws","account":"522814721969","name":null,"status":"pending",
 	"moduleVersion":"1.2.0","moduleCommit":null,"collectorId":"arn:aws:lambda:x","identityId":null,
 	"regions":["us-east-1"],"deployedAt":"2026-10-30T09:41:25.817Z"}`
 

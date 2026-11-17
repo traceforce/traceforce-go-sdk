@@ -19,13 +19,14 @@ import (
 // CloudCollectorDeviceID is the device id of a cloud collector's token, e.g. "cloud-collector-aws".
 func CloudCollectorDeviceID(provider string) string { return "cloud-collector-" + provider }
 
-// CloudConnectionStatus is where a connection is.
-type CloudConnectionStatus int
+// CloudConnectionStatus is where a connection is, as the API names it.
+type CloudConnectionStatus string
 
 const (
-	CloudConnectionStatusPending   CloudConnectionStatus = 1 // registered, no upload yet
-	CloudConnectionStatusConnected CloudConnectionStatus = 2 // the last upload was stored
-	CloudConnectionStatusFailed    CloudConnectionStatus = 3 // the last upload carried an error
+	CloudConnectionStatusPending   CloudConnectionStatus = "pending"   // registered, no upload yet
+	CloudConnectionStatusConnected CloudConnectionStatus = "connected" // the last upload was stored
+	CloudConnectionStatusFailed    CloudConnectionStatus = "failed"    // the last upload carried an error
+	CloudConnectionStatusUnknown   CloudConnectionStatus = "unknown"   // a value this API version does not name
 )
 
 // CreateCloudConnectionRequest registers a cloud account.
