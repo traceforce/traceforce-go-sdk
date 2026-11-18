@@ -20,7 +20,7 @@ const testConnID = "3b0c6d1e-1111-4222-8333-444455556666"
 
 const notFoundBody = `{"error":"Connection not found","code":"connection_not_found"}`
 
-var testCreds = Credentials{ClientID: "client-1", ClientSecret: "secret-1"}
+var testCreds = Credentials{ClientID: "client-1", ClientSecret: "secret-1", Cloud: "aws"}
 
 // seen is one request the fake server got.
 type seen struct {
@@ -78,7 +78,7 @@ func TestNewClientWithCredentialsLogsInThenUsesToken(t *testing.T) {
 
 	assert.Len(t, got, 2)
 	assert.Equal(t, seen{"POST", "/api-keys", "", map[string]any{
-		"client_id": "client-1", "client_secret": "secret-1", "device_id": "cloud-collector-terraform",
+		"client_id": "client-1", "client_secret": "secret-1", "device_id": "cloud-collector-aws",
 	}}, got[0], "login sends id, secret and device id, without Authorization")
 	assert.Equal(t, "Bearer tok-123", got[1].auth, "later calls carry the login token")
 }
@@ -563,4 +563,23 @@ func TestOtherCallsStillFollowRedirects(t *testing.T) {
 	conn, err := c.GetCloudConnection(testConnID)
 	assert.NoError(t, err)
 	assert.Equal(t, testConnID, conn.ID)
+}
+
+// The cloud decides the token: a cloud's collector token, or a plain one.
+func TestLoginSendsTheCloudsDeviceID(t *testing.T) {
+	for cloud, want := range map[string]any{"aws": "cloud-collector-aws", "m365": "cloud-collector-m365", "": nil} {
+		var got []seen
+		srv := newServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]any
+			b, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(b, &body)
+			got = append(got, seen{r.Method, r.URL.Path, r.Header.Get("Authorization"), body})
+			_, _ = w.Write([]byte(`{"access_token":"tok"}`))
+		}))
+		_, err := NewClientWithCredentials(Credentials{ClientID: "client-1", ClientSecret: "secret-1", Cloud: cloud}, srv.URL, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, want, got[0].body["device_id"], "cloud %q", cloud)
+		_, sent := got[0].body["device_id"]
+		assert.Equal(t, cloud != "", sent, "no device_id is sent without a cloud (%q)", cloud)
+	}
 }

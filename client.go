@@ -70,20 +70,21 @@ func (s *tokenSource) Renew(gen int) error {
 type Credentials struct {
 	ClientID     string
 	ClientSecret string
+	// Cloud is the cloud whose connections the client manages: "aws" or "m365".
+	// The token is then that cloud's collector token (the cloud-connection calls
+	// need it, and it reaches only that cloud's connections). Empty: a plain
+	// token, for every other call (datalakes, hosting environments, source apps).
+	Cloud string
 }
-
-// terraformDeviceID is the device id of a token from NewClientWithCredentials:
-// Traceforce lets it use the cloud-connection routes, for any cloud.
-const terraformDeviceID = "cloud-collector-terraform"
 
 // String hides the secret when Credentials are printed (%v, %+v, %s).
 func (c Credentials) String() string {
-	return fmt.Sprintf("{ClientID:%s ClientSecret:%s}", c.ClientID, redacted(c.ClientSecret))
+	return fmt.Sprintf("{ClientID:%s ClientSecret:%s Cloud:%s}", c.ClientID, redacted(c.ClientSecret), c.Cloud)
 }
 
 // GoString hides the secret for %#v.
 func (c Credentials) GoString() string {
-	return fmt.Sprintf("traceforce.Credentials{ClientID:%q, ClientSecret:%q}", c.ClientID, redacted(c.ClientSecret))
+	return fmt.Sprintf("traceforce.Credentials{ClientID:%q, ClientSecret:%q, Cloud:%q}", c.ClientID, redacted(c.ClientSecret), c.Cloud)
 }
 
 // redacted shows only whether a secret is set.
@@ -169,8 +170,10 @@ func (c *Client) login(creds Credentials) (string, error) {
 	var res struct {
 		AccessToken string `json:"access_token"`
 	}
-	login := map[string]string{
-		"client_id": creds.ClientID, "client_secret": creds.ClientSecret, "device_id": terraformDeviceID,
+	login := map[string]string{"client_id": creds.ClientID, "client_secret": creds.ClientSecret}
+	if creds.Cloud != "" {
+		// The device id Traceforce expects from a cloud's collector.
+		login["device_id"] = "cloud-collector-" + creds.Cloud
 	}
 	if err := c.send(http.MethodPost, "/api-keys", "", login, &res); err != nil {
 		return "", fmt.Errorf("login with the API client failed: %w", err)

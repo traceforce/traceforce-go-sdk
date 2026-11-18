@@ -12,8 +12,8 @@ import (
 // Cloud connections: one per customer cloud account (an AWS account or a
 // Microsoft 365 tenant) whose collector runs in the customer's cloud.
 //
-// These calls need a client from NewClientWithCredentials (one of the org's
-// API clients); the same client works for every cloud.
+// These calls need a client from NewClientWithCredentials with Credentials.Cloud
+// set: it reaches only that cloud's connections (another cloud's answers HTTP 403).
 
 // CloudConnectionStatus is where a connection is, as the API names it.
 type CloudConnectionStatus string
