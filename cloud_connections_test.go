@@ -44,8 +44,8 @@ func fakeAPI(t *testing.T, status int, reply string, got *[]seen) *httptest.Serv
 
 // connJSON is a connection as the API answers it.
 const connJSON = `{"id":"` + testConnID + `","provider":"aws","account":"522814721969","name":null,"status":"pending",
-	"moduleVersion":"1.2.0","moduleCommit":null,"collectorId":"arn:aws:lambda:x","identityId":null,
-	"regions":["us-east-1"],"deployedAt":"2026-10-30T09:41:25.817Z"}`
+	"module_version":"1.2.0","module_commit":null,"collector_id":"arn:aws:lambda:x","identity_id":null,
+	"regions":["us-east-1"],"deployed_at":"2026-10-30T09:41:25.817Z"}`
 
 func TestNewClientWithCredentialsLogsInThenUsesToken(t *testing.T) {
 	var got []seen
@@ -144,7 +144,7 @@ func TestCreateCloudConnection(t *testing.T) {
 	assert.True(t, conn.Created)
 	assert.Equal(t, CloudConnectionStatusPending, conn.Status)
 	assert.Equal(t, seen{"POST", "/cloud-connections", "Bearer tok", map[string]any{
-		"provider": "aws", "account": "522814721969", "name": "Prod", "moduleVersion": "1.2.0", "moduleCommit": "abc123",
+		"provider": "aws", "account": "522814721969", "name": "Prod", "module_version": "1.2.0", "module_commit": "abc123",
 	}}, got[0])
 }
 
@@ -162,7 +162,7 @@ func TestCreateCloudConnectionWithoutIDIsAnError(t *testing.T) {
 
 func TestCreateCloudConnectionOldBundle(t *testing.T) {
 	var got []seen
-	reply := `{"error":"Collector 1.0.0 is older than 1.2.0.","code":"collector_too_old","moduleVersion":"1.0.0","minVersion":"1.2.0"}`
+	reply := `{"error":"Collector 1.0.0 is older than 1.2.0.","code":"collector_too_old","module_version":"1.0.0","min_version":"1.2.0"}`
 	srv := fakeAPI(t, http.StatusUpgradeRequired, reply, &got)
 	c, _ := NewClient("tok", srv.URL, nil)
 
@@ -234,7 +234,7 @@ func TestPutCloudConnectionDeployment(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 2026, conn.DeployedAt.Year())
 	assert.Equal(t, seen{"PUT", "/cloud-connections/" + testConnID + "/deployment", "Bearer tok", map[string]any{
-		"collectorId": "arn:aws:lambda:us-east-1:1:function:C", "identityId": "arn:aws:iam::1:role/R", "regions": []any{"us-east-1"},
+		"collector_id": "arn:aws:lambda:us-east-1:1:function:C", "identity_id": "arn:aws:iam::1:role/R", "regions": []any{"us-east-1"},
 	}}, got[0])
 }
 
@@ -250,7 +250,7 @@ func TestPutCloudConnectionDeploymentNotFound(t *testing.T) {
 
 func TestDeleteCloudConnectionDeployment(t *testing.T) {
 	var got []seen
-	srv := fakeAPI(t, http.StatusOK, strings.Replace(connJSON, `"deployedAt":"2026-10-30T09:41:25.817Z"`, `"deployedAt":null`, 1), &got)
+	srv := fakeAPI(t, http.StatusOK, strings.Replace(connJSON, `"deployed_at":"2026-10-30T09:41:25.817Z"`, `"deployed_at":null`, 1), &got)
 	c, _ := NewClient("tok", srv.URL, nil)
 
 	conn, err := c.DeleteCloudConnectionDeployment(testConnID)

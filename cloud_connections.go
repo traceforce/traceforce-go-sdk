@@ -31,17 +31,17 @@ const (
 
 // CreateCloudConnectionRequest registers a cloud account.
 type CreateCloudConnectionRequest struct {
-	Provider      string `json:"provider"`               // "aws" or "m365"
-	Account       string `json:"account"`                // AWS account id or tenant id
-	Name          string `json:"name,omitempty"`         // display name until the first upload
-	ModuleVersion string `json:"moduleVersion"`          // collector bundle release, e.g. "1.2.0"
-	ModuleCommit  string `json:"moduleCommit,omitempty"` // git commit of that release
+	Provider      string `json:"provider"`                // "aws" or "m365"
+	Account       string `json:"account"`                 // AWS account id or tenant id
+	Name          string `json:"name,omitempty"`          // display name until the first upload
+	ModuleVersion string `json:"module_version"`          // collector bundle release, e.g. "1.2.0"
+	ModuleCommit  string `json:"module_commit,omitempty"` // git commit of that release
 }
 
 // CloudConnectionDeployment is the collector deployed for a connection.
 type CloudConnectionDeployment struct {
-	CollectorID string   `json:"collectorId"`       // Lambda ARN / Function App id
-	IdentityID  string   `json:"identityId"`        // IAM role ARN / managed identity object id
+	CollectorID string   `json:"collector_id"`      // Lambda ARN / Function App id
+	IdentityID  string   `json:"identity_id"`       // IAM role ARN / managed identity object id
 	Regions     []string `json:"regions,omitempty"` // AWS only; omitted keeps the stored regions
 }
 
@@ -52,12 +52,12 @@ type CloudConnection struct {
 	Account       string                `json:"account"`
 	Name          *string               `json:"name"`
 	Status        CloudConnectionStatus `json:"status"`
-	ModuleVersion *string               `json:"moduleVersion"`
-	ModuleCommit  *string               `json:"moduleCommit"`
-	CollectorID   *string               `json:"collectorId"`
-	IdentityID    *string               `json:"identityId"`
+	ModuleVersion *string               `json:"module_version"`
+	ModuleCommit  *string               `json:"module_commit"`
+	CollectorID   *string               `json:"collector_id"`
+	IdentityID    *string               `json:"identity_id"`
 	Regions       []string              `json:"regions"`
-	DeployedAt    *time.Time            `json:"deployedAt"` // nil = no collector recorded
+	DeployedAt    *time.Time            `json:"deployed_at"` // nil = no collector recorded
 	// Created is set by CreateCloudConnection only: false when the account was registered before.
 	Created bool `json:"created,omitempty"`
 }
