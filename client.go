@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
+	"strings"
 	"sync"
 	"time"
 )
@@ -68,18 +70,20 @@ func (s *tokenSource) Renew(gen int) error {
 type Credentials struct {
 	ClientID     string
 	ClientSecret string
-	// DeviceID is who the token is for, e.g. CloudCollectorDeviceID("aws").
-	DeviceID string
 }
+
+// terraformDeviceID is the device id of a token from NewClientWithCredentials:
+// Traceforce lets it use the cloud-connection routes, for any cloud.
+const terraformDeviceID = "cloud-collector-terraform"
 
 // String hides the secret when Credentials are printed (%v, %+v, %s).
 func (c Credentials) String() string {
-	return fmt.Sprintf("{ClientID:%s ClientSecret:%s DeviceID:%s}", c.ClientID, redacted(c.ClientSecret), c.DeviceID)
+	return fmt.Sprintf("{ClientID:%s ClientSecret:%s}", c.ClientID, redacted(c.ClientSecret))
 }
 
 // GoString hides the secret for %#v.
 func (c Credentials) GoString() string {
-	return fmt.Sprintf("traceforce.Credentials{ClientID:%q, ClientSecret:%q, DeviceID:%q}", c.ClientID, redacted(c.ClientSecret), c.DeviceID)
+	return fmt.Sprintf("traceforce.Credentials{ClientID:%q, ClientSecret:%q}", c.ClientID, redacted(c.ClientSecret))
 }
 
 // redacted shows only whether a secret is set.
@@ -138,6 +142,21 @@ func NewClientWithCredentials(creds Credentials, url string, options *ClientOpti
 	if err != nil {
 		return nil, err
 	}
+	// The client secret is never sent over plain http.
+	if u, err := neturl.Parse(c.baseURL); err != nil || u.Scheme != "https" {
+		return nil, fmt.Errorf("the API URL must use https to log in with an API client, got %q", c.baseURL)
+	}
+	// Go re-sends a request body on a 307/308 redirect, even to another host:
+	// the login (with the client secret) never follows one.
+	c.httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if strings.HasSuffix(via[0].URL.Path, "/api-keys") {
+			return http.ErrUseLastResponse
+		}
+		if len(via) >= 10 { // Go's default limit for every other call
+			return errors.New("stopped after 10 redirects")
+		}
+		return nil
+	}
 	c.auth.login = func() (string, error) { return c.login(creds) }
 	if err := c.auth.Renew(0); err != nil {
 		return nil, err
@@ -151,7 +170,7 @@ func (c *Client) login(creds Credentials) (string, error) {
 		AccessToken string `json:"access_token"`
 	}
 	login := map[string]string{
-		"client_id": creds.ClientID, "client_secret": creds.ClientSecret, "device_id": creds.DeviceID,
+		"client_id": creds.ClientID, "client_secret": creds.ClientSecret, "device_id": terraformDeviceID,
 	}
 	if err := c.send(http.MethodPost, "/api-keys", "", login, &res); err != nil {
 		return "", fmt.Errorf("login with the API client failed: %w", err)

@@ -12,12 +12,8 @@ import (
 // Cloud connections: one per customer cloud account (an AWS account or a
 // Microsoft 365 tenant) whose collector runs in the customer's cloud.
 //
-// These calls need a collector token: a client from NewClientWithCredentials
-// with DeviceID CloudCollectorDeviceID(provider). A token may only reach its
-// own cloud's connections (another cloud's answers HTTP 403).
-
-// CloudCollectorDeviceID is the device id of a cloud collector's token, e.g. "cloud-collector-aws".
-func CloudCollectorDeviceID(provider string) string { return "cloud-collector-" + provider }
+// These calls need a client from NewClientWithCredentials (one of the org's
+// API clients); the same client works for every cloud.
 
 // CloudConnectionStatus is where a connection is, as the API names it.
 type CloudConnectionStatus string

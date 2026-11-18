@@ -20,7 +20,7 @@ const testConnID = "3b0c6d1e-1111-4222-8333-444455556666"
 
 const notFoundBody = `{"error":"Connection not found","code":"connection_not_found"}`
 
-var testCreds = Credentials{ClientID: "client-1", ClientSecret: "secret-1", DeviceID: "cloud-collector-aws"}
+var testCreds = Credentials{ClientID: "client-1", ClientSecret: "secret-1"}
 
 // seen is one request the fake server got.
 type seen struct {
@@ -30,7 +30,7 @@ type seen struct {
 
 // fakeAPI answers every request with status + reply and records it in got.
 func fakeAPI(t *testing.T, status int, reply string, got *[]seen) *httptest.Server {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := newServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		b, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(b, &body)
@@ -42,6 +42,16 @@ func fakeAPI(t *testing.T, status int, reply string, got *[]seen) *httptest.Serv
 	return srv
 }
 
+// newServer starts an https test server (a client login needs https) and lets
+// this process trust its certificate until the test ends. Tests here do not run in parallel.
+func newServer(t *testing.T, h http.Handler) *httptest.Server {
+	srv := httptest.NewTLSServer(h)
+	old := http.DefaultTransport
+	http.DefaultTransport = srv.Client().Transport
+	t.Cleanup(func() { http.DefaultTransport = old; srv.Close() })
+	return srv
+}
+
 // connJSON is a connection as the API answers it.
 const connJSON = `{"id":"` + testConnID + `","provider":"aws","account":"522814721969","name":null,"status":"pending",
 	"module_version":"1.2.0","module_commit":null,"collector_id":"arn:aws:lambda:x","identity_id":null,
@@ -49,7 +59,7 @@ const connJSON = `{"id":"` + testConnID + `","provider":"aws","account":"5228147
 
 func TestNewClientWithCredentialsLogsInThenUsesToken(t *testing.T) {
 	var got []seen
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := newServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		got = append(got, seen{r.Method, r.URL.Path, r.Header.Get("Authorization"), body})
@@ -68,7 +78,7 @@ func TestNewClientWithCredentialsLogsInThenUsesToken(t *testing.T) {
 
 	assert.Len(t, got, 2)
 	assert.Equal(t, seen{"POST", "/api-keys", "", map[string]any{
-		"client_id": "client-1", "client_secret": "secret-1", "device_id": "cloud-collector-aws",
+		"client_id": "client-1", "client_secret": "secret-1", "device_id": "cloud-collector-terraform",
 	}}, got[0], "login sends id, secret and device id, without Authorization")
 	assert.Equal(t, "Bearer tok-123", got[1].auth, "later calls carry the login token")
 }
@@ -76,7 +86,7 @@ func TestNewClientWithCredentialsLogsInThenUsesToken(t *testing.T) {
 func TestExpiredTokenLogsInAgainOnce(t *testing.T) {
 	var got []seen
 	logins := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := newServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = append(got, seen{r.Method, r.URL.Path, r.Header.Get("Authorization"), nil})
 		switch {
 		case r.URL.Path == "/api-keys":
@@ -350,15 +360,10 @@ func TestBuildHeadersWithoutKey(t *testing.T) {
 	assert.Equal(t, "1", headers["x-a"])
 }
 
-func TestCloudCollectorDeviceID(t *testing.T) {
-	assert.Equal(t, "cloud-collector-aws", CloudCollectorDeviceID("aws"))
-	assert.Equal(t, "cloud-collector-m365", CloudCollectorDeviceID("m365"))
-}
-
 func TestExpiredTokenIsRenewedOnceForManyCalls(t *testing.T) {
 	var mu sync.Mutex
 	logins := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := newServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
 		if r.URL.Path == "/api-keys" {
@@ -406,7 +411,7 @@ func TestFailedRenewalIsSharedByTheWaitingCalls(t *testing.T) {
 	var mu sync.Mutex
 	logins, calls := 0, 0
 	allSent := make(chan struct{})
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := newServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
 		if r.URL.Path == "/api-keys" {
@@ -451,7 +456,7 @@ func TestFailedRenewalIsSharedByTheWaitingCalls(t *testing.T) {
 
 func TestFailedRenewalIsTriedAgainByTheNextCall(t *testing.T) {
 	logins := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := newServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api-keys" {
 			logins++
 			if logins == 2 { // the login service is down once
@@ -480,7 +485,7 @@ func TestFailedRenewalIsTriedAgainByTheNextCall(t *testing.T) {
 
 func TestExtraAuthorizationDoesNotReplaceTheToken(t *testing.T) {
 	var got []seen
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := newServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = append(got, seen{r.Method, r.URL.Path, r.Header.Get("Authorization"), map[string]any{"x-a": r.Header.Get("X-A")}})
 		if r.URL.Path == "/api-keys" {
 			_, _ = w.Write([]byte(`{"access_token":"tok-123"}`))
@@ -504,7 +509,7 @@ func TestExtraAuthorizationDoesNotReplaceTheToken(t *testing.T) {
 }
 
 func TestCredentialsPrintingHidesTheSecret(t *testing.T) {
-	c := Credentials{ClientID: "client-1", ClientSecret: "s3cr3t-value", DeviceID: "cloud-collector-aws"}
+	c := Credentials{ClientID: "client-1", ClientSecret: "s3cr3t-value"}
 	for _, format := range []string{"%v", "%+v", "%#v", "%s"} {
 		for _, value := range []any{c, &c} {
 			out := fmt.Sprintf(format, value)
@@ -515,4 +520,47 @@ func TestCredentialsPrintingHidesTheSecret(t *testing.T) {
 	}
 	assert.NotContains(t, fmt.Sprintf("%+v", struct{ Creds Credentials }{c}), "s3cr3t-value", "nested in a struct")
 	assert.NotContains(t, fmt.Sprintf("%v", Credentials{ClientID: "client-1"}), "REDACTED", "no secret set shows empty")
+}
+
+func TestClientLoginNeedsHTTPS(t *testing.T) {
+	creds := Credentials{ClientID: "client-1", ClientSecret: "secret-1"}
+	for _, url := range []string{"http://api.example.com/api/v1", "http://localhost:3001/api/v1", "http://127.0.0.1:1/api/v1", "ftp://api.example.com", "api.example.com"} {
+		_, err := NewClientWithCredentials(creds, url, nil)
+		assert.ErrorContains(t, err, "must use https", url)
+	}
+}
+
+func TestClientLoginDoesNotFollowRedirects(t *testing.T) {
+	var elsewhere int
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { elsewhere++ }))
+	defer other.Close()
+	srv := newServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, other.URL+r.URL.Path, http.StatusTemporaryRedirect)
+	}))
+	defer srv.Close()
+
+	_, err := NewClientWithCredentials(Credentials{ClientID: "c", ClientSecret: "secret-1"}, srv.URL+"/api/v1", nil)
+	var apiErr *APIError
+	assert.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusTemporaryRedirect, apiErr.StatusCode)
+	assert.Zero(t, elsewhere, "the login (with the secret) is not sent to the redirect target")
+}
+
+// Only the login refuses redirects; other calls follow them as before.
+func TestOtherCallsStillFollowRedirects(t *testing.T) {
+	srv := newServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/api-keys"):
+			_, _ = w.Write([]byte(`{"access_token":"tok"}`))
+		case strings.HasSuffix(r.URL.Path, "/moved"):
+			_, _ = w.Write([]byte(connJSON))
+		default:
+			http.Redirect(w, r, "/api/v1/moved", http.StatusTemporaryRedirect)
+		}
+	}))
+	c, err := NewClientWithCredentials(testCreds, srv.URL+"/api/v1", nil)
+	assert.NoError(t, err)
+	conn, err := c.GetCloudConnection(testConnID)
+	assert.NoError(t, err)
+	assert.Equal(t, testConnID, conn.ID)
 }
