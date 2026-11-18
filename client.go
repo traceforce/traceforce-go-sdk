@@ -72,6 +72,24 @@ type Credentials struct {
 	DeviceID string
 }
 
+// String hides the secret when Credentials are printed (%v, %+v, %s).
+func (c Credentials) String() string {
+	return fmt.Sprintf("{ClientID:%s ClientSecret:%s DeviceID:%s}", c.ClientID, redacted(c.ClientSecret), c.DeviceID)
+}
+
+// GoString hides the secret for %#v.
+func (c Credentials) GoString() string {
+	return fmt.Sprintf("traceforce.Credentials{ClientID:%q, ClientSecret:%q, DeviceID:%q}", c.ClientID, redacted(c.ClientSecret), c.DeviceID)
+}
+
+// redacted shows only whether a secret is set.
+func redacted(secret string) string {
+	if secret == "" {
+		return ""
+	}
+	return "REDACTED"
+}
+
 type ClientOptions struct {
 	// ExtraHeaders allows adding additional headers to all API requests.
 	ExtraHeaders map[string]string `json:"extra_headers,omitempty"`

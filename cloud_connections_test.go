@@ -502,3 +502,17 @@ func TestExtraAuthorizationDoesNotReplaceTheToken(t *testing.T) {
 	static, _ := NewClient("tok", srv.URL, &ClientOptions{ExtraHeaders: map[string]string{"Authorization": "Basic proxy-cred"}})
 	assert.Equal(t, "Basic proxy-cred", static.buildHeaders()["Authorization"], "a client made with a key still lets ExtraHeaders replace it")
 }
+
+func TestCredentialsPrintingHidesTheSecret(t *testing.T) {
+	c := Credentials{ClientID: "client-1", ClientSecret: "s3cr3t-value", DeviceID: "cloud-collector-aws"}
+	for _, format := range []string{"%v", "%+v", "%#v", "%s"} {
+		for _, value := range []any{c, &c} {
+			out := fmt.Sprintf(format, value)
+			assert.NotContains(t, out, "s3cr3t-value", format)
+			assert.Contains(t, out, "client-1", format)
+			assert.Contains(t, out, "REDACTED", format)
+		}
+	}
+	assert.NotContains(t, fmt.Sprintf("%+v", struct{ Creds Credentials }{c}), "s3cr3t-value", "nested in a struct")
+	assert.NotContains(t, fmt.Sprintf("%v", Credentials{ClientID: "client-1"}), "REDACTED", "no secret set shows empty")
+}
