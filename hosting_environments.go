@@ -341,13 +341,15 @@ func (c *Client) PostConnection(id string, req *PostConnectionRequest) error {
 	return nil
 }
 
+// validateResponse turns an answer outside 2xx into an *APIError (text
+// "HTTP <status>: <body>"), for every call of the client.
 func validateResponse(resp *http.Response) error {
-	if resp.StatusCode >= 400 {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("failed to read error response body: %v", err)
-		}
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	if isSuccess(resp.StatusCode) {
+		return nil
 	}
-	return nil
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return &APIError{StatusCode: resp.StatusCode, Body: fmt.Sprintf("failed to read error response body: %v", err)}
+	}
+	return newAPIError(resp.StatusCode, body)
 }
